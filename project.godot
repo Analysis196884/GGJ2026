@@ -1,0 +1,23 @@
+; Engine configuration for Project Masquerade Ark
+; Godot 4.x with .NET / C#
+
+[application]
+config/name="Masquerade Ark"
+config/description="LLM-driven narrative survival mystery game"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.3", "C#")
+
+[debug]
+gdscript/warnings/unused_variable=1
+gdscript/warnings/unused_signal=1
+gdscript/warnings/unused_parameter=1
+
+[dotnet]
+project/assembly_name="MasqueradeArk"
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[rendering]
+textures/vram_compression/import_etc2_astc=true

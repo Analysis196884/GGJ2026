@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1234567890abcdef"]
+
+[ext_resource type="Script" path="res://src/Manager/GameManager.cs" id="1_abc123"]
+[ext_resource type="Script" path="res://src/UI/UIManager.cs" id="2_def456"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_abc123")
+
+[node name="UIManager" type="Control" parent="."]
+layout_mode=3
+anchors_left=0.0
+anchors_top=0.0
+anchors_right=1.0
+anchors_bottom=1.0
+script = ExtResource("2_def456")

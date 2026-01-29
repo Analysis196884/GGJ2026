@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Godot.NET.Sdk/4.3.0">
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework Condition=" '$(OS)' == 'Windows_NT' ">net7.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AssemblyName>MasqueradeArk</AssemblyName>
+    <RootNamespace>MasqueradeArk</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Godot.BindingsGenerator" Version="4.3.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="external/godot-mcp/package.json" />
+  </ItemGroup>
+</Project>

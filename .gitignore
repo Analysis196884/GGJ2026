@@ -1,0 +1,51 @@
+# Godot-specific ignores
+.import/
+export.cfg
+export_presets.cfg
+.godot/
+/android/
+
+# Imported translations (automatically generated from CSV files)
+*.translation
+
+# Mono-specific ignores
+.mono/
+data_*/
+mono_crash.*.json
+
+# System/IDE
+.vscode/
+.vs/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Build
+obj/
+bin/
+*.csproj.user
+*.sln.user
+
+# Generated files
+*.gen.cs
+*.cs.meta
+
+# Temporary files
+*.tmp
+*.bak
+
+# Saves, screencaps, etc.
+*.save
+*.png
+*.jpg
+*.jpeg
+
+# User data
+user_data/
+user.cfg
+
+# Node-specific
+node_modules/
+package-lock.json
