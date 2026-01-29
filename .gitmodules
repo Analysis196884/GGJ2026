@@ -1,0 +1,3 @@
+[submodule "external/godot-mcp"]
+	path = external/godot-mcp
+	url = https://github.com/Coding-Solo/godot-mcp.git
