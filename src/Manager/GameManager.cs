@@ -15,10 +15,10 @@ namespace MasqueradeArk.Manager
     public partial class GameManager : Node
     {
         // 核心组件
-        private GameState _gameState;
-        private SimulationEngine _simulationEngine;
-        private NarrativeEngine _narrativeEngine;
-        private UIManager _uiManager;
+        private GameState? _gameState;
+        private SimulationEngine? _simulationEngine;
+        private NarrativeEngine? _narrativeEngine;
+        private UIManager? _uiManager;
 
         // 游戏状态
         private bool _isGameOver = false;

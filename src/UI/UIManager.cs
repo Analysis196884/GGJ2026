@@ -12,15 +12,15 @@ namespace MasqueradeArk.UI
     public partial class UIManager : Control
     {
         // UI 节点引用
-        private Label _dayLabel;
-        private Label _suppliesLabel;
-        private Label _defenseLabel;
-        private RichTextLabel _eventLog;
-        private VBoxContainer _survivorCards;
-        private Button _nextDayButton;
-        private Button _meetingButton;
-        private HBoxContainer _choicesContainer;
-        private LineEdit _playerInput;
+        private Label? _dayLabel;
+        private Label? _suppliesLabel;
+        private Label? _defenseLabel;
+        private RichTextLabel? _eventLog;
+        private VBoxContainer? _survivorCards;
+        private Button? _nextDayButton;
+        private Button? _meetingButton;
+        private HBoxContainer? _choicesContainer;
+        private LineEdit? _playerInput;
 
         // 信号
         [Signal]
@@ -62,7 +62,7 @@ namespace MasqueradeArk.UI
             mainContainer.AddChild(sidebar);
 
             _dayLabel = new Label { Text = "Day 1" };
-            _dayLabel.AddThemeStyleOverride("font_sizes", 24);
+            _dayLabel.AddThemeFontSizeOverride("font_size", 24);
             sidebar.AddChild(_dayLabel);
 
             _suppliesLabel = new Label { Text = "Supplies: 50" };
@@ -174,7 +174,7 @@ namespace MasqueradeArk.UI
             // 名字和角色
             var nameLabel = new Label();
             nameLabel.Text = $"{survivor.SurvivorName} ({survivor.Role})";
-            nameLabel.AddThemeStyleOverride("font_sizes", 14);
+            nameLabel.AddThemeFontSizeOverride("font_size", 14);
             vbox.AddChild(nameLabel);
 
             if (_isDebugMode && survivor.Secrets.Length > 0)
@@ -231,9 +231,12 @@ namespace MasqueradeArk.UI
         /// </summary>
         public void AppendLog(string text)
         {
-            _eventLog.AppendText(text + "\n");
-            // 自动滚动到底部
-            _eventLog.ScrollToBbcode(int.MaxValue);
+            if (_eventLog != null)
+            {
+                _eventLog.AppendText(text + "\n");
+                // 自动滚动到底部
+                _eventLog.GetVScrollBar().Value = _eventLog.GetVScrollBar().MaxValue;
+            }
         }
 
         /// <summary>

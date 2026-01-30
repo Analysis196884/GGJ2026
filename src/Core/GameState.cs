@@ -24,7 +24,7 @@ namespace MasqueradeArk.Core
 
         /// <summary>所有 Survivor 实例的集合</summary>
         [Export]
-        public Godot.Collections.Array<Survivor> Survivors { get; set; } = [];
+        public Godot.Collections.Array<Survivor> Survivors { get; set; } = new Godot.Collections.Array<Survivor>();
 
         /// <summary>事件日志 (供 UI / Debug / 存档使用)</summary>
         private List<string> _eventLog = [];

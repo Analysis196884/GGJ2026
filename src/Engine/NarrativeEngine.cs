@@ -44,7 +44,7 @@ namespace MasqueradeArk.Engine
 
                 case GameEvent.EventType.SuppliesStolen:
                     result.NarrativeText = GenerateTheftNarrative(gameEvent, state);
-                    result.Choices = ["继续调查", "保持警惕", "试图推理"];
+                    result.Choices = new string[] { "继续调查", "保持警惕", "试图推理" };
                     break;
 
                 case GameEvent.EventType.Starvation:
@@ -53,12 +53,12 @@ namespace MasqueradeArk.Engine
 
                 case GameEvent.EventType.MentalBreakdown:
                     result.NarrativeText = GenerateMentalBreakdownNarrative(gameEvent, state);
-                    result.Choices = ["安慰他们", "保持距离", "表示关切"];
+                    result.Choices = new string[] { "安慰他们", "保持距离", "表示关切" };
                     break;
 
                 case GameEvent.EventType.InfectionDetected:
                     result.NarrativeText = GenerateInfectionNarrative(gameEvent, state);
-                    result.Choices = ["质问此人", "私下交谈", "装作未察觉"];
+                    result.Choices = new string[] { "质问此人", "私下交谈", "装作未察觉" };
                     break;
 
                 case GameEvent.EventType.Death:

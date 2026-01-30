@@ -42,7 +42,7 @@ namespace MasqueradeArk.Core
 
         /// <summary>秘密集合 (例如: "Infected", "Thief")</summary>
         [Export]
-        public string[] Secrets { get; set; } = [];
+        public string[] Secrets { get; set; } = new string[] { };
 
         /// <summary>关系网 (Key: NPC 名字或 "Player", Value: 信任度)</summary>
         private Dictionary<string, int> _relationships = [];
@@ -62,7 +62,7 @@ namespace MasqueradeArk.Core
             Stress = 0;
             Integrity = 0;
             Suspicion = 0;
-            Secrets = [];
+            Secrets = new string[] { };
         }
 
         /// <summary>获取与指定 NPC 的信任度</summary>

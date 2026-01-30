@@ -25,8 +25,8 @@ namespace MasqueradeArk.Core
 
         public EventType Type { get; set; }
         public int Day { get; set; }
-        public List<string> InvolvedNpcs { get; set; } = [];
-        public Dictionary<string, object> Context { get; set; } = [];
+        public List<string> InvolvedNpcs { get; set; } = new List<string>();
+        public Dictionary<string, object> Context { get; set; } = new Dictionary<string, object>();
         public string Description { get; set; } = "";
 
         public GameEvent()
