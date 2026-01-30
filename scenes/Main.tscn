@@ -1,10 +1,10 @@
-[gd_scene load_steps=2 format=3 uid="uid://b1234567890abcdef"]
+[gd_scene load_steps=3 format=3 uid="uid://main_masquerade_ark"]
 
-[ext_resource type="Script" path="res://src/Manager/GameManager.cs" id="1_gamemanager"]
-[ext_resource type="Script" path="res://src/UI/UIManager.cs" id="2_uimanager"]
+[ext_resource type="Script" path="res://src/Manager/GameManager.cs" id="GameManagerScript"]
+[ext_resource type="Script" path="res://src/UI/UIManager.cs" id="UIManagerScript"]
 
 [node name="Main" type="Node"]
-script = ExtResource("1_gamemanager")
+script = ExtResource("GameManagerScript")
 
 [node name="UIManager" type="Control" parent="."]
 layout_mode = 3
@@ -12,4 +12,90 @@ anchors_left = 0.0
 anchors_top = 0.0
 anchors_right = 1.0
 anchors_bottom = 1.0
-script = ExtResource("2_uimanager")
+script = ExtResource("UIManagerScript")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="UIManager"]
+layout_mode = 1
+anchors_left = 0.0
+anchors_top = 0.0
+anchors_right = 1.0
+anchors_bottom = 1.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = 0.0
+
+[node name="Sidebar" type="VBoxContainer" parent="UIManager/HBoxContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(250, 0)
+
+[node name="DayLabel" type="Label" parent="UIManager/HBoxContainer/Sidebar"]
+layout_mode = 2
+text = "Day 1"
+theme_override_font_sizes/font_size = 24
+
+[node name="SuppliesLabel" type="Label" parent="UIManager/HBoxContainer/Sidebar"]
+layout_mode = 2
+text = "Supplies: 50"
+
+[node name="DefenseLabel" type="Label" parent="UIManager/HBoxContainer/Sidebar"]
+layout_mode = 2
+text = "Defense: 50"
+
+[node name="HSeparator1" type="HSeparator" parent="UIManager/HBoxContainer/Sidebar"]
+layout_mode = 2
+
+[node name="SurvivorLabel" type="Label" parent="UIManager/HBoxContainer/Sidebar"]
+layout_mode = 2
+text = "幸存者列表"
+theme_override_font_sizes/font_size = 14
+
+[node name="ScrollContainer" type="ScrollContainer" parent="UIManager/HBoxContainer/Sidebar"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SurvivorCardsContainer" type="VBoxContainer" parent="UIManager/HBoxContainer/Sidebar/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="MainArea" type="VBoxContainer" parent="UIManager/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="EventLog" type="RichTextLabel" parent="UIManager/HBoxContainer/MainArea"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 300)
+size_flags_vertical = 2
+bbcode_enabled = true
+scroll_active = true
+
+[node name="HSeparator2" type="HSeparator" parent="UIManager/HBoxContainer/MainArea"]
+layout_mode = 2
+
+[node name="ActionArea" type="VBoxContainer" parent="UIManager/HBoxContainer/MainArea"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="NextDayButton" type="Button" parent="UIManager/HBoxContainer/MainArea/ActionArea"]
+layout_mode = 2
+text = "推进到下一天"
+
+[node name="MeetingButton" type="Button" parent="UIManager/HBoxContainer/MainArea/ActionArea"]
+layout_mode = 2
+text = "召开会议"
+
+[node name="InputLabel" type="Label" parent="UIManager/HBoxContainer/MainArea/ActionArea"]
+layout_mode = 2
+text = "输入你的命令："
+
+[node name="PlayerInput" type="LineEdit" parent="UIManager/HBoxContainer/MainArea/ActionArea"]
+layout_mode = 2
+placeholder_text = "输入命令..."
+
+[node name="HSeparator3" type="HSeparator" parent="UIManager/HBoxContainer/MainArea/ActionArea"]
+layout_mode = 2
+
+[node name="ChoicesContainer" type="HBoxContainer" parent="UIManager/HBoxContainer/MainArea/ActionArea"]
+layout_mode = 2

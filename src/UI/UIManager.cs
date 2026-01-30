@@ -5,324 +5,328 @@ using MasqueradeArk.Core;
 
 namespace MasqueradeArk.UI
 {
-    /// <summary>
-    /// UI 管理器 - 负责更新所有 UI 显示，与逻辑层解耦
-    /// </summary>
-    [GlobalClass]
-    public partial class UIManager : Control
-    {
-        // UI 节点引用
-        private Label? _dayLabel;
-        private Label? _suppliesLabel;
-        private Label? _defenseLabel;
-        private RichTextLabel? _eventLog;
-        private VBoxContainer? _survivorCards;
-        private Button? _nextDayButton;
-        private Button? _meetingButton;
-        private HBoxContainer? _choicesContainer;
-        private LineEdit? _playerInput;
+	/// <summary>
+	/// UI 管理器 - 负责更新所有 UI 显示，与逻辑层解耦
+	/// </summary>
+	[GlobalClass]
+	public partial class UIManager : Control
+	{
+		// UI 节点引用（从场景获取）
+		private Label? _dayLabel;
+		private Label? _suppliesLabel;
+		private Label? _defenseLabel;
+		private RichTextLabel? _eventLog;
+		private VBoxContainer? _survivorCardsContainer;
+		private Button? _nextDayButton;
+		private Button? _meetingButton;
+		private HBoxContainer? _choicesContainer;
+		private LineEdit? _playerInput;
 
-        // 信号
-        [Signal]
-        public delegate void NextDayPressedEventHandler();
+		// 信号
+		[Signal]
+		public delegate void NextDayPressedEventHandler();
 
-        [Signal]
-        public delegate void MeetingPressedEventHandler();
+		[Signal]
+		public delegate void MeetingPressedEventHandler();
 
-        [Signal]
-        public delegate void ChoiceSelectedEventHandler(int choiceIndex);
+		[Signal]
+		public delegate void ChoiceSelectedEventHandler(int choiceIndex);
 
-        [Signal]
-        public delegate void PlayerInputSubmittedEventHandler(string input);
+		[Signal]
+		public delegate void PlayerInputSubmittedEventHandler(string input);
 
-        private bool _isDebugMode = false;
+		private bool _isDebugMode = false;
 
-        public override void _Ready()
-        {
-            SetupUI();
-            _isDebugMode = OS.IsDebugBuild();
-        }
+		public override void _Ready()
+		{
+			GD.Print("[UIManager] 初始化开始");
+			
+			// 从场景树获取所有节点引用
+			GetNodeReferences();
+			
+			// 连接按钮信号
+			ConnectButtonSignals();
+			
+			_isDebugMode = OS.IsDebugBuild();
+			GD.Print("[UIManager] 初始化完成");
+		}
 
-        /// <summary>
-        /// 设置 UI 结构
-        /// </summary>
-        private void SetupUI()
-        {
-            // 创建主容器
-            var mainContainer = new HBoxContainer();
-            mainContainer.AnchorLeft = 0;
-            mainContainer.AnchorTop = 0;
-            mainContainer.AnchorRight = 1;
-            mainContainer.AnchorBottom = 1;
-            AddChild(mainContainer);
+		/// <summary>
+		/// 从场景树获取所有节点引用
+		/// </summary>
+		private void GetNodeReferences()
+		{
+			try
+			{
+				var hboxContainer = GetNode<HBoxContainer>("HBoxContainer");
+				var sidebar = hboxContainer.GetNode<VBoxContainer>("Sidebar");
+				var mainArea = hboxContainer.GetNode<VBoxContainer>("MainArea");
+				var actionArea = mainArea.GetNode<VBoxContainer>("ActionArea");
 
-            // ===== 左侧面板（侧边栏）=====
-            var sidebar = new VBoxContainer();
-            sidebar.CustomMinimumSize = new Vector2(250, 0);
-            mainContainer.AddChild(sidebar);
+				_dayLabel = sidebar.GetNode<Label>("DayLabel");
+				_suppliesLabel = sidebar.GetNode<Label>("SuppliesLabel");
+				_defenseLabel = sidebar.GetNode<Label>("DefenseLabel");
+				_survivorCardsContainer = sidebar.GetNode<ScrollContainer>("ScrollContainer")
+					.GetNode<VBoxContainer>("SurvivorCardsContainer");
 
-            _dayLabel = new Label { Text = "Day 1" };
-            _dayLabel.AddThemeFontSizeOverride("font_size", 24);
-            sidebar.AddChild(_dayLabel);
+				_eventLog = mainArea.GetNode<RichTextLabel>("EventLog");
 
-            _suppliesLabel = new Label { Text = "Supplies: 50" };
-            sidebar.AddChild(_suppliesLabel);
+				_nextDayButton = actionArea.GetNode<Button>("NextDayButton");
+				_meetingButton = actionArea.GetNode<Button>("MeetingButton");
+				_playerInput = actionArea.GetNode<LineEdit>("PlayerInput");
+				_choicesContainer = actionArea.GetNode<HBoxContainer>("ChoicesContainer");
 
-            _defenseLabel = new Label { Text = "Defense: 50" };
-            sidebar.AddChild(_defenseLabel);
+				GD.Print("[UIManager] 所有节点引用获取成功");
+			}
+			catch (Exception ex)
+			{
+				GD.PrintErr($"[UIManager] 获取节点引用失败：{ex.Message}");
+			}
+		}
 
-            sidebar.AddChild(new HSeparator());
+		/// <summary>
+		/// 连接按钮信号
+		/// </summary>
+		private void ConnectButtonSignals()
+		{
+			if (_nextDayButton != null)
+			{
+				_nextDayButton.Pressed += OnNextDayPressed;
+				GD.Print("[UIManager] NextDayButton 连接成功");
+			}
 
-            var survivorLabel = new Label { Text = "幸存者列表" };
-            sidebar.AddChild(survivorLabel);
+			if (_meetingButton != null)
+			{
+				_meetingButton.Pressed += OnMeetingPressed;
+				GD.Print("[UIManager] MeetingButton 连接成功");
+			}
 
-            _survivorCards = new VBoxContainer();
-            _survivorCards.CustomMinimumSize = new Vector2(250, 400);
-            var scrollContainer = new ScrollContainer();
-            scrollContainer.AddChild(_survivorCards);
-            sidebar.AddChild(scrollContainer);
+			if (_playerInput != null)
+			{
+				_playerInput.TextSubmitted += OnPlayerInputSubmitted;
+				GD.Print("[UIManager] PlayerInput 连接成功");
+			}
+		}
 
-            // ===== 右侧主区域 =====
-            var mainArea = new VBoxContainer();
-            mainContainer.AddChild(mainArea);
-            mainArea.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		/// <summary>
+		/// 更新整个 UI 显示
+		/// </summary>
+		public void UpdateUI(GameState state)
+		{
+			UpdateStatus(state);
+			UpdateSurvivorCards(state);
+		}
 
-            // 事件日志
-            _eventLog = new RichTextLabel();
-            _eventLog.CustomMinimumSize = new Vector2(0, 300);
-            _eventLog.BbcodeEnabled = true;
-            _eventLog.ScrollActive = true;
-            mainArea.AddChild(_eventLog);
+		/// <summary>
+		/// 更新状态标签
+		/// </summary>
+		private void UpdateStatus(GameState state)
+		{
+			if (_dayLabel != null)
+				_dayLabel.Text = $"Day {state.Day}";
+			if (_suppliesLabel != null)
+				_suppliesLabel.Text = $"Supplies: {state.Supplies}";
+			if (_defenseLabel != null)
+				_defenseLabel.Text = $"Defense: {state.Defense}";
+		}
 
-            mainArea.AddChild(new HSeparator());
+		/// <summary>
+		/// 更新幸存者卡片
+		/// </summary>
+		private void UpdateSurvivorCards(GameState state)
+		{
+			if (_survivorCardsContainer == null)
+				return;
 
-            // 行动区
-            var actionArea = new VBoxContainer();
-            mainArea.AddChild(actionArea);
+			// 清空旧卡片
+			foreach (var child in _survivorCardsContainer.GetChildren())
+			{
+				child.QueueFree();
+			}
 
-            _nextDayButton = new Button { Text = "推进到下一天" };
-            _nextDayButton.Pressed += OnNextDayPressed;
-            actionArea.AddChild(_nextDayButton);
+			// 创建新卡片
+			foreach (var survivor in state.Survivors)
+			{
+				var card = CreateSurvivorCard(survivor);
+				_survivorCardsContainer.AddChild(card);
+			}
+		}
 
-            _meetingButton = new Button { Text = "召开会议" };
-            _meetingButton.Pressed += OnMeetingPressed;
-            actionArea.AddChild(_meetingButton);
+		/// <summary>
+		/// 创建单个幸存者卡片
+		/// </summary>
+		private PanelContainer CreateSurvivorCard(Survivor survivor)
+		{
+			var panel = new PanelContainer();
+			var vbox = new VBoxContainer();
+			panel.AddChild(vbox);
 
-            // 玩家输入框
-            var inputLabel = new Label { Text = "输入你的命令：" };
-            actionArea.AddChild(inputLabel);
+			// 名字和角色
+			var nameLabel = new Label();
+			nameLabel.Text = $"{survivor.SurvivorName} ({survivor.Role})";
+			nameLabel.AddThemeFontSizeOverride("font_size", 14);
+			vbox.AddChild(nameLabel);
 
-            _playerInput = new LineEdit();
-            _playerInput.PlaceholderText = "输入命令...";
-            _playerInput.TextSubmitted += OnPlayerInputSubmitted;
-            actionArea.AddChild(_playerInput);
+			if (_isDebugMode && survivor.Secrets.Length > 0)
+			{
+				var secretsLabel = new Label();
+				secretsLabel.Text = $"[秘密] {string.Join(", ", survivor.Secrets)}";
+				secretsLabel.AddThemeColorOverride("font_color", Colors.Red);
+				vbox.AddChild(secretsLabel);
+			}
 
-            actionArea.AddChild(new HSeparator());
+			// HP 条
+			vbox.AddChild(CreateProgressBar("HP", survivor.Hp, 100, Colors.Red));
 
-            // 选择按钮区
-            _choicesContainer = new HBoxContainer();
-            actionArea.AddChild(_choicesContainer);
-        }
+			// Stress 条
+			vbox.AddChild(CreateProgressBar("Stress", survivor.Stress, 100, Colors.Orange));
 
-        /// <summary>
-        /// 更新整个 UI 显示
-        /// </summary>
-        public void UpdateUI(GameState state)
-        {
-            UpdateStatus(state);
-            UpdateSurvivorCards(state);
-        }
+			// Suspicion 条
+			vbox.AddChild(CreateProgressBar("Suspicion", survivor.Suspicion, 100, Colors.Yellow));
 
-        /// <summary>
-        /// 更新状态标签
-        /// </summary>
-        private void UpdateStatus(GameState state)
-        {
-            _dayLabel.Text = $"Day {state.Day}";
-            _suppliesLabel.Text = $"Supplies: {state.Supplies}";
-            _defenseLabel.Text = $"Defense: {state.Defense}";
-        }
+			// Hunger 条
+			vbox.AddChild(CreateProgressBar("Hunger", survivor.Hunger, 100, Colors.Brown));
 
-        /// <summary>
-        /// 更新幸存者卡片
-        /// </summary>
-        private void UpdateSurvivorCards(GameState state)
-        {
-            // 清空旧卡片
-            foreach (var child in _survivorCards.GetChildren())
-            {
-                child.QueueFree();
-            }
+			return panel;
+		}
 
-            // 创建新卡片
-            foreach (var survivor in state.Survivors)
-            {
-                var card = CreateSurvivorCard(survivor);
-                _survivorCards.AddChild(card);
-            }
-        }
+		/// <summary>
+		/// 创建进度条
+		/// </summary>
+		private HBoxContainer CreateProgressBar(string label, int value, int max, Color color)
+		{
+			var hbox = new HBoxContainer();
 
-        /// <summary>
-        /// 创建单个幸存者卡片
-        /// </summary>
-        private PanelContainer CreateSurvivorCard(Survivor survivor)
-        {
-            var panel = new PanelContainer();
-            var vbox = new VBoxContainer();
-            panel.AddChild(vbox);
+			var labelNode = new Label { Text = label + ":" };
+			labelNode.CustomMinimumSize = new Vector2(80, 0);
+			hbox.AddChild(labelNode);
 
-            // 名字和角色
-            var nameLabel = new Label();
-            nameLabel.Text = $"{survivor.SurvivorName} ({survivor.Role})";
-            nameLabel.AddThemeFontSizeOverride("font_size", 14);
-            vbox.AddChild(nameLabel);
+			var progressBar = new ProgressBar();
+			progressBar.MinValue = 0;
+			progressBar.MaxValue = max;
+			progressBar.Value = value;
+			progressBar.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+			progressBar.AddThemeColorOverride("fill", color);
+			hbox.AddChild(progressBar);
 
-            if (_isDebugMode && survivor.Secrets.Length > 0)
-            {
-                var secretsLabel = new Label();
-                secretsLabel.Text = $"[秘密] {string.Join(", ", survivor.Secrets)}";
-                secretsLabel.AddThemeColorOverride("font_color", Colors.Red);
-                vbox.AddChild(secretsLabel);
-            }
+			var valueLabel = new Label { Text = $"{value}/{max}" };
+			valueLabel.CustomMinimumSize = new Vector2(50, 0);
+			hbox.AddChild(valueLabel);
 
-            // HP 条
-            vbox.AddChild(CreateProgressBar("HP", survivor.Hp, 100, Colors.Red));
+			return hbox;
+		}
 
-            // Stress 条
-            vbox.AddChild(CreateProgressBar("Stress", survivor.Stress, 100, Colors.Orange));
+		/// <summary>
+		/// 追加日志条目
+		/// </summary>
+		public void AppendLog(string text)
+		{
+			if (_eventLog != null)
+			{
+				_eventLog.AppendText(text + "\n");
+				// 自动滚动到底部
+				_eventLog.GetVScrollBar().Value = _eventLog.GetVScrollBar().MaxValue;
+			}
+		}
 
-            // Suspicion 条
-            vbox.AddChild(CreateProgressBar("Suspicion", survivor.Suspicion, 100, Colors.Yellow));
+		/// <summary>
+		/// 清空日志
+		/// </summary>
+		public void ClearLog()
+		{
+			if (_eventLog != null)
+				_eventLog.Clear();
+		}
 
-            // Hunger 条
-            vbox.AddChild(CreateProgressBar("Hunger", survivor.Hunger, 100, Colors.Brown));
+		/// <summary>
+		/// 显示选择按钮
+		/// </summary>
+		public void ShowChoices(string[] choices)
+		{
+			if (_choicesContainer == null)
+				return;
 
-            return panel;
-        }
+			// 清空旧按钮
+			foreach (var child in _choicesContainer.GetChildren())
+			{
+				child.QueueFree();
+			}
 
-        /// <summary>
-        /// 创建进度条
-        /// </summary>
-        private HBoxContainer CreateProgressBar(string label, int value, int max, Color color)
-        {
-            var hbox = new HBoxContainer();
+			if (choices == null || choices.Length == 0)
+				return;
 
-            var labelNode = new Label { Text = label + ":" };
-            labelNode.CustomMinimumSize = new Vector2(80, 0);
-            hbox.AddChild(labelNode);
+			for (int i = 0; i < choices.Length; i++)
+			{
+				int choiceIndex = i; // 闭包捕获
+				var button = new Button { Text = choices[i] };
+				button.Pressed += () => OnChoiceSelected(choiceIndex);
+				_choicesContainer.AddChild(button);
+			}
+		}
 
-            var progressBar = new ProgressBar();
-            progressBar.MinValue = 0;
-            progressBar.MaxValue = max;
-            progressBar.Value = value;
-            progressBar.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            progressBar.AddThemeColorOverride("fill", color);
-            hbox.AddChild(progressBar);
+		/// <summary>
+		/// 隐藏选择按钮
+		/// </summary>
+		public void HideChoices()
+		{
+			if (_choicesContainer == null)
+				return;
 
-            var valueLabel = new Label { Text = $"{value}/{max}" };
-            valueLabel.CustomMinimumSize = new Vector2(50, 0);
-            hbox.AddChild(valueLabel);
+			foreach (var child in _choicesContainer.GetChildren())
+			{
+				child.QueueFree();
+			}
+		}
 
-            return hbox;
-        }
+		/// <summary>
+		/// 启用/禁用行动按钮
+		/// </summary>
+		public void SetActionButtonsEnabled(bool enabled)
+		{
+			if (_nextDayButton != null)
+				_nextDayButton.Disabled = !enabled;
+			if (_meetingButton != null)
+				_meetingButton.Disabled = !enabled;
+		}
 
-        /// <summary>
-        /// 追加日志条目
-        /// </summary>
-        public void AppendLog(string text)
-        {
-            if (_eventLog != null)
-            {
-                _eventLog.AppendText(text + "\n");
-                // 自动滚动到底部
-                _eventLog.GetVScrollBar().Value = _eventLog.GetVScrollBar().MaxValue;
-            }
-        }
+		// ===== 事件处理 =====
 
-        /// <summary>
-        /// 清空日志
-        /// </summary>
-        public void ClearLog()
-        {
-            _eventLog.Clear();
-        }
+		private void OnNextDayPressed()
+		{
+			GD.Print("[UIManager] NextDayButton 被按下");
+			EmitSignal(SignalName.NextDayPressed);
+		}
 
-        /// <summary>
-        /// 显示选择按钮
-        /// </summary>
-        public void ShowChoices(string[] choices)
-        {
-            // 清空旧按钮
-            foreach (var child in _choicesContainer.GetChildren())
-            {
-                child.QueueFree();
-            }
+		private void OnMeetingPressed()
+		{
+			GD.Print("[UIManager] MeetingButton 被按下");
+			EmitSignal(SignalName.MeetingPressed);
+		}
 
-            if (choices == null || choices.Length == 0)
-                return;
+		private void OnChoiceSelected(int choiceIndex)
+		{
+			GD.Print($"[UIManager] 选择了选项 {choiceIndex}");
+			EmitSignal(SignalName.ChoiceSelected, choiceIndex);
+			HideChoices();
+		}
 
-            for (int i = 0; i < choices.Length; i++)
-            {
-                int choiceIndex = i; // 闭包捕获
-                var button = new Button { Text = choices[i] };
-                button.Pressed += () => OnChoiceSelected(choiceIndex);
-                _choicesContainer.AddChild(button);
-            }
-        }
+		private void OnPlayerInputSubmitted(string input)
+		{
+			GD.Print($"[UIManager] 玩家输入：{input}");
+			if (!string.IsNullOrEmpty(input))
+			{
+				EmitSignal(SignalName.PlayerInputSubmitted, input);
+				if (_playerInput != null)
+					_playerInput.Clear();
+			}
+		}
 
-        /// <summary>
-        /// 隐藏选择按钮
-        /// </summary>
-        public void HideChoices()
-        {
-            foreach (var child in _choicesContainer.GetChildren())
-            {
-                child.QueueFree();
-            }
-        }
-
-        /// <summary>
-        /// 启用/禁用行动按钮
-        /// </summary>
-        public void SetActionButtonsEnabled(bool enabled)
-        {
-            _nextDayButton.Disabled = !enabled;
-            _meetingButton.Disabled = !enabled;
-        }
-
-        // ===== 事件处理 =====
-
-        private void OnNextDayPressed()
-        {
-            EmitSignal(SignalName.NextDayPressed);
-        }
-
-        private void OnMeetingPressed()
-        {
-            EmitSignal(SignalName.MeetingPressed);
-        }
-
-        private void OnChoiceSelected(int choiceIndex)
-        {
-            EmitSignal(SignalName.ChoiceSelected, choiceIndex);
-            HideChoices();
-        }
-
-        private void OnPlayerInputSubmitted(string input)
-        {
-            if (!string.IsNullOrEmpty(input))
-            {
-                EmitSignal(SignalName.PlayerInputSubmitted, input);
-                _playerInput.Clear();
-            }
-        }
-
-        /// <summary>
-        /// 切换调试模式
-        /// </summary>
-        public void SetDebugMode(bool enabled)
-        {
-            _isDebugMode = enabled;
-        }
-    }
+		/// <summary>
+		/// 切换调试模式
+		/// </summary>
+		public void SetDebugMode(bool enabled)
+		{
+			_isDebugMode = enabled;
+		}
+	}
 }

@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using MasqueradeArk.Utilities;
 
 namespace MasqueradeArk.Core
 {
@@ -48,22 +49,22 @@ namespace MasqueradeArk.Core
             doctor.SetTrust("Jake", 30);
             doctor.SetTrust("Lisa", 50);
             doctor.SetTrust("Tom", 40);
-            doctor.SetTrust("Player", 50);
+            doctor.SetTrust(GameConstants.PLAYER_NAME, GameConstants.INITIAL_TRUST);
 
-            mercenary.SetTrust("Sarah", 20);
+            mercenary.SetTrust("Dr. Sarah", 20);
             mercenary.SetTrust("Lisa", 10);
             mercenary.SetTrust("Tom", 35);
-            mercenary.SetTrust("Player", 40);
+            mercenary.SetTrust(GameConstants.PLAYER_NAME, 40);
 
-            engineer.SetTrust("Sarah", 60);
+            engineer.SetTrust("Dr. Sarah", 60);
             engineer.SetTrust("Jake", 15);
             engineer.SetTrust("Tom", 55);
-            engineer.SetTrust("Player", 45);
+            engineer.SetTrust(GameConstants.PLAYER_NAME, 45);
 
-            farmer.SetTrust("Sarah", 50);
+            farmer.SetTrust("Dr. Sarah", 50);
             farmer.SetTrust("Jake", 25);
             farmer.SetTrust("Lisa", 60);
-            farmer.SetTrust("Player", 55);
+            farmer.SetTrust(GameConstants.PLAYER_NAME, 55);
 
             Survivors.Add(doctor);
             Survivors.Add(mercenary);
@@ -71,8 +72,8 @@ namespace MasqueradeArk.Core
             Survivors.Add(farmer);
 
             Day = 1;
-            Supplies = 50;
-            Defense = 50;
+            Supplies = GameConstants.INITIAL_SUPPLIES;
+            Defense = GameConstants.INITIAL_DEFENSE;
             _eventLog.Clear();
             AppendLog("欢迎来到废墟。你和幸存者们开始了新的一天。");
         }

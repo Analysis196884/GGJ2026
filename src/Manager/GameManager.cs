@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using MasqueradeArk.Core;
 using MasqueradeArk.Engine;
 using MasqueradeArk.UI;
+using MasqueradeArk.Utilities;
 
 namespace MasqueradeArk.Manager
 {
@@ -54,16 +55,19 @@ namespace MasqueradeArk.Manager
             AddChild(_narrativeEngine);
 
             // 尝试从场景树获取 UIManager
-            _uiManager = GetNode<UIManager>("../UIManager");
+            _uiManager = GetNode<UIManager>("UIManager");
             if (_uiManager == null)
             {
                 GD.PrintErr("UIManager 未找到，将创建新实例");
                 _uiManager = new UIManager();
-                GetParent().AddChild(_uiManager);
+                AddChild(_uiManager);
             }
 
             // 连接 UI 信号
             ConnectUISignals();
+
+            // 为幸存者分配随机秘密
+            _simulationEngine.AssignRandomSecretsToAll(_gameState);
 
             // 初始化 UI
             _uiManager.UpdateUI(_gameState);
@@ -78,10 +82,47 @@ namespace MasqueradeArk.Manager
         /// </summary>
         private void ConnectUISignals()
         {
-            _uiManager.NextDayPressed += OnNextDayPressed;
-            _uiManager.MeetingPressed += OnMeetingPressed;
-            _uiManager.ChoiceSelected += OnChoiceSelected;
-            _uiManager.PlayerInputSubmitted += OnPlayerInputSubmitted;
+            if (_uiManager == null)
+            {
+                GD.PrintErr("[GameManager] UIManager 为 null，无法连接信号");
+                return;
+            }
+
+            GD.Print("[GameManager] 连接 UIManager 信号...");
+            
+            try
+            {
+                // 使用 Godot 的 Connect 方法连接信号
+                _uiManager.Connect(
+                    UIManager.SignalName.NextDayPressed,
+                    new Callable(this, MethodName.OnNextDayPressed)
+                );
+                GD.Print("[GameManager] NextDayPressed 连接成功");
+                
+                _uiManager.Connect(
+                    UIManager.SignalName.MeetingPressed,
+                    new Callable(this, MethodName.OnMeetingPressed)
+                );
+                GD.Print("[GameManager] MeetingPressed 连接成功");
+                
+                _uiManager.Connect(
+                    UIManager.SignalName.ChoiceSelected,
+                    new Callable(this, MethodName.OnChoiceSelected)
+                );
+                GD.Print("[GameManager] ChoiceSelected 连接成功");
+                
+                _uiManager.Connect(
+                    UIManager.SignalName.PlayerInputSubmitted,
+                    new Callable(this, MethodName.OnPlayerInputSubmitted)
+                );
+                GD.Print("[GameManager] PlayerInputSubmitted 连接成功");
+                
+                GD.Print("[GameManager] 所有信号连接完成");
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[GameManager] 信号连接失败：{ex.Message}");
+            }
         }
 
         /// <summary>
@@ -177,12 +218,49 @@ namespace MasqueradeArk.Manager
         /// </summary>
         private void OnChoiceSelected(int choiceIndex)
         {
-            // 这里可以根据选择执行不同的操作
             GD.Print($"玩家选择了选项 {choiceIndex}");
-            _uiManager.AppendLog("你的决定已记录。");
+            
+            // 如果当前处于投票状态，处理投票结果
+            var choices = GetVotingChoices();
+            if (choiceIndex < choices.Length)
+            {
+                string selectedChoice = choices[choiceIndex];
+                
+                if (selectedChoice == "取消投票")
+                {
+                    _uiManager.AppendLog("会议结束。没有人被驱逐。");
+                }
+                else
+                {
+                    // 执行驱逐
+                    _simulationEngine.ExileSurvivor(_gameState, selectedChoice);
+                    _uiManager.AppendLog($"经过激烈的辩论，{selectedChoice} 被团队投票驱逐了。");
+                    _uiManager.AppendLog("气氛变得更加紧张...");
+                    
+                    // 增加所有剩余幸存者的压力
+                    foreach (var survivor in _gameState.Survivors)
+                    {
+                        if (survivor.Hp > 0 && survivor.SurvivorName != selectedChoice)
+                        {
+                            survivor.Stress += 15;
+                        }
+                    }
+                    
+                    // 更新UI
+                    _uiManager.UpdateUI(_gameState);
+                    
+                    // 检查游戏结束条件
+                    CheckGameOver();
+                }
+            }
+            else
+            {
+                _uiManager.AppendLog("你的决定已记录。");
+            }
 
             _isProcessing = false;
-            _uiManager.SetActionButtonsEnabled(true);
+            _uiManager.SetActionButtonsEnabled(!_isGameOver);
+            _uiManager.HideChoices();
         }
 
         /// <summary>
@@ -289,7 +367,7 @@ namespace MasqueradeArk.Manager
             }
 
             // 胜利条件可以根据需要自定义
-            if (_gameState.Day > 30)
+            if (_gameState.Day > GameConstants.VICTORY_DAYS)
             {
                 _isGameOver = true;
                 _uiManager.AppendLog("\n=== 游戏结束 ===");

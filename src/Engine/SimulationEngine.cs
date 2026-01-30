@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using MasqueradeArk.Core;
+using MasqueradeArk.Utilities;
 
 namespace MasqueradeArk.Engine
 {
@@ -48,19 +49,27 @@ namespace MasqueradeArk.Engine
         /// </summary>
         private void ProcessSupplies(GameState state, List<GameEvent> events)
         {
-            int survivorCount = state.GetSurvivorCount();
+            int survivorCount = state.GetAliveSurvivorCount();
 
-            if (state.Supplies > 0)
+            if (state.Supplies >= survivorCount * GameConstants.DAILY_SUPPLIES_PER_SURVIVOR)
             {
-                // 物资充足：消耗 1 单位/幸存者
-                state.Supplies -= survivorCount;
-                if (state.Supplies < 0)
-                    state.Supplies = 0;
+                // 物资充足：消耗配额
+                int consumption = survivorCount * GameConstants.DAILY_SUPPLIES_PER_SURVIVOR;
+                state.Supplies -= consumption;
+                
+                // 重置饥饿度
+                foreach (var survivor in state.Survivors)
+                {
+                    if (survivor.Hp > 0)
+                    {
+                        survivor.Hunger = 0;
+                    }
+                }
 
                 var evt = new GameEvent(
                     GameEvent.EventType.SuppliesConsumed,
                     state.Day,
-                    $"消耗了 {survivorCount} 单位物资。"
+                    $"消耗了 {consumption} 单位物资。"
                 );
                 events.Add(evt);
             }
@@ -69,8 +78,11 @@ namespace MasqueradeArk.Engine
                 // 物资不足：增加饥饿与压力
                 foreach (var survivor in state.Survivors)
                 {
-                    survivor.Hunger += 20;
-                    survivor.Stress += 10;
+                    if (survivor.Hp > 0)
+                    {
+                        survivor.Hunger += GameConstants.STARVATION_HUNGER_INCREASE;
+                        survivor.Stress += GameConstants.STARVATION_STRESS_INCREASE;
+                    }
                 }
 
                 var evt = new GameEvent(
@@ -90,12 +102,16 @@ namespace MasqueradeArk.Engine
             // 感染恶化
             if (survivor.HasSecret("Infected"))
             {
-                survivor.Hp -= 5;
+                survivor.Hp -= GameConstants.INFECTION_DAILY_DAMAGE;
 
-                // 20% 概率被目击异常
-                if (_rng.Randf() < 0.2f)
+                // 检查是否被目击异常
+                if (_rng.Randf() < GameConstants.INFECTION_DETECTION_CHANCE)
                 {
-                    survivor.Suspicion += (int)(_rng.Randf() * 15) + 5;
+                    int suspicionIncrease = (int)(_rng.Randf() *
+                        (GameConstants.MAX_SUSPICION_INCREASE - GameConstants.MIN_SUSPICION_INCREASE)) +
+                        GameConstants.MIN_SUSPICION_INCREASE;
+                    survivor.Suspicion += suspicionIncrease;
+                    
                     var evt = new GameEvent(
                         GameEvent.EventType.InfectionDetected,
                         state.Day,
@@ -107,10 +123,10 @@ namespace MasqueradeArk.Engine
             }
 
             // 饥饿恶化规则
-            if (survivor.Hunger > 80)
+            if (survivor.Hunger > GameConstants.HUNGER_CRITICAL_THRESHOLD)
             {
-                survivor.Hp -= 10;
-                survivor.Stress += 15;
+                survivor.Hp -= GameConstants.HUNGER_DAMAGE;
+                survivor.Stress += GameConstants.HUNGER_STRESS_PENALTY;
 
                 var evt = new GameEvent(
                     GameEvent.EventType.Starvation,
@@ -122,9 +138,9 @@ namespace MasqueradeArk.Engine
             }
 
             // 精神崩溃规则
-            if (survivor.Stress > 80)
+            if (survivor.Stress > GameConstants.STRESS_BREAKDOWN_THRESHOLD)
             {
-                if (_rng.Randf() < 0.3f)
+                if (_rng.Randf() < GameConstants.BREAKDOWN_CHANCE)
                 {
                     var evt = new GameEvent(
                         GameEvent.EventType.MentalBreakdown,
@@ -135,7 +151,7 @@ namespace MasqueradeArk.Engine
                     events.Add(evt);
 
                     // 崩溃后压力减少
-                    survivor.Stress = Math.Max(0, survivor.Stress - 30);
+                    survivor.Stress = Math.Max(0, survivor.Stress - GameConstants.BREAKDOWN_STRESS_RELIEF);
                 }
             }
 
@@ -166,15 +182,15 @@ namespace MasqueradeArk.Engine
                     continue;
 
                 // 偷窃判定
-                float theftChance = survivor.Hunger * 0.5f / 100f;
+                float theftChance = survivor.Hunger * GameConstants.HUNGER_THEFT_MULTIPLIER / 100f;
                 if (survivor.Integrity < 0)
                 {
-                    theftChance += 0.3f; // +30%
+                    theftChance += GameConstants.LOW_INTEGRITY_THEFT_BONUS;
                 }
 
                 if (_rng.Randf() < theftChance && state.Supplies > 0)
                 {
-                    state.Supplies -= 1;
+                    state.Supplies -= GameConstants.THEFT_AMOUNT;
                     var evt = new GameEvent(
                         GameEvent.EventType.SuppliesStolen,
                         state.Day,
@@ -183,6 +199,38 @@ namespace MasqueradeArk.Engine
                     // 不记录是谁偷的 - 这是秘密
                     events.Add(evt);
                 }
+            }
+        }
+
+        /// <summary>
+        /// 为新创建的幸存者随机分配秘密
+        /// </summary>
+        public void AssignRandomSecrets(Survivor survivor)
+        {
+            // 感染概率检查
+            if (_rng.Randf() < GameConstants.INFECTED_SPAWN_CHANCE)
+            {
+                survivor.AddSecret("Infected");
+                GD.Print($"[SimulationEngine] {survivor.SurvivorName} 被分配了秘密：Infected");
+            }
+
+            // 小偷概率检查
+            if (_rng.Randf() < GameConstants.THIEF_SPAWN_CHANCE)
+            {
+                survivor.AddSecret("Thief");
+                survivor.Integrity -= 20; // 小偷道德值更低
+                GD.Print($"[SimulationEngine] {survivor.SurvivorName} 被分配了秘密：Thief");
+            }
+        }
+
+        /// <summary>
+        /// 批量为所有幸存者分配随机秘密
+        /// </summary>
+        public void AssignRandomSecretsToAll(GameState state)
+        {
+            foreach (var survivor in state.Survivors)
+            {
+                AssignRandomSecrets(survivor);
             }
         }
 
