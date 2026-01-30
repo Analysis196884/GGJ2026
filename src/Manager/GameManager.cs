@@ -24,6 +24,11 @@ namespace MasqueradeArk.Manager
         // 游戏状态
         private bool _isGameOver = false;
         private bool _isProcessing = false;
+        
+        // 时间机制
+        private Timer? _gameTimer;
+        private bool _isAutoMode = false;
+        private float _dayDuration = 10.0f; // 10秒为一天
 
         // 信号
         [Signal]
@@ -63,6 +68,9 @@ namespace MasqueradeArk.Manager
                 AddChild(_uiManager);
             }
 
+            // 初始化时间机制
+            InitializeTimer();
+
             // 连接 UI 信号
             ConnectUISignals();
 
@@ -75,6 +83,54 @@ namespace MasqueradeArk.Manager
             _uiManager.AppendLog(_narrativeEngine.GenerateDaySummary(_gameState));
 
             GD.Print($"游戏初始化完成。初始幸存者数：{_gameState.GetSurvivorCount()}");
+        }
+
+        /// <summary>
+        /// 初始化游戏计时器
+        /// </summary>
+        private void InitializeTimer()
+        {
+            _gameTimer = new Timer();
+            _gameTimer.WaitTime = _dayDuration;
+            _gameTimer.OneShot = false;
+            _gameTimer.Timeout += OnTimerTimeout;
+            AddChild(_gameTimer);
+            
+            GD.Print($"[GameManager] 时间机制初始化完成。每天持续 {_dayDuration} 秒");
+        }
+
+        /// <summary>
+        /// 计时器超时事件 - 自动推进天数
+        /// </summary>
+        private void OnTimerTimeout()
+        {
+            if (_isAutoMode && !_isGameOver && !_isProcessing)
+            {
+                GD.Print("[GameManager] 自动模式：推进到下一天");
+                OnNextDayPressed();
+            }
+        }
+
+        /// <summary>
+        /// 切换自动/手动模式
+        /// </summary>
+        public void ToggleAutoMode()
+        {
+            _isAutoMode = !_isAutoMode;
+            if (_gameTimer != null)
+            {
+                if (_isAutoMode)
+                {
+                    _gameTimer.Start();
+                    _uiManager?.AppendLog("已开启自动模式 - 每10秒推进一天");
+                }
+                else
+                {
+                    _gameTimer.Stop();
+                    _uiManager?.AppendLog("已关闭自动模式 - 手动控制");
+                }
+            }
+            GD.Print($"[GameManager] 自动模式: {(_isAutoMode ? "开启" : "关闭")}");
         }
 
         /// <summary>
@@ -104,6 +160,12 @@ namespace MasqueradeArk.Manager
                     new Callable(this, MethodName.OnMeetingPressed)
                 );
                 GD.Print("[GameManager] MeetingPressed 连接成功");
+                
+                _uiManager.Connect(
+                    UIManager.SignalName.AutoModePressed,
+                    new Callable(this, MethodName.OnAutoModePressed)
+                );
+                GD.Print("[GameManager] AutoModePressed 连接成功");
                 
                 _uiManager.Connect(
                     UIManager.SignalName.ChoiceSelected,
@@ -193,6 +255,14 @@ namespace MasqueradeArk.Manager
             // 显示投票选项（需要自定义具体实现）
             var choices = GetVotingChoices();
             _uiManager.ShowChoices(choices);
+        }
+
+        /// <summary>
+        /// 切换自动模式
+        /// </summary>
+        private void OnAutoModePressed()
+        {
+            ToggleAutoMode();
         }
 
         /// <summary>

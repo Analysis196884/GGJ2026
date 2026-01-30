@@ -41,6 +41,9 @@ namespace MasqueradeArk.Engine
             // 4. 推进天数
             state.Day++;
 
+            // 5. 随机事件检查
+            ProcessRandomEvents(state, events);
+
             return events;
         }
 
@@ -283,6 +286,165 @@ namespace MasqueradeArk.Engine
             }
 
             survivor.ClampValues();
+        }
+
+        /// <summary>
+        /// 处理随机事件系统
+        /// </summary>
+        private void ProcessRandomEvents(GameState state, List<GameEvent> events)
+        {
+            // 基础随机事件概率 (每天5%概率)
+            if (_rng.Randf() < 0.05f)
+            {
+                TriggerRandomEvent(state, events);
+            }
+
+            // 压力相关事件：当团队整体压力过高时增加概率
+            float avgStress = CalculateAverageStress(state);
+            if (avgStress > 60 && _rng.Randf() < 0.15f)
+            {
+                TriggerStressEvent(state, events);
+            }
+
+            // 物资短缺相关事件
+            if (state.Supplies < 10 && _rng.Randf() < 0.2f)
+            {
+                TriggerSupplyEvent(state, events);
+            }
+        }
+
+        /// <summary>
+        /// 触发一般随机事件
+        /// </summary>
+        private void TriggerRandomEvent(GameState state, List<GameEvent> events)
+        {
+            var randomEvents = new string[]
+            {
+                "发现了一些废弃的医疗用品",
+                "外面传来了奇怪的声音",
+                "基地的一扇窗户突然破了",
+                "有人在夜里听到了远处的枪声",
+                "发现了前人留下的求救信号"
+            };
+
+            var eventDescription = randomEvents[_rng.Randi() % randomEvents.Length];
+            var evt = new GameEvent(GameEvent.EventType.Custom, state.Day, eventDescription);
+
+            // 根据事件类型添加不同效果
+            if (eventDescription.Contains("医疗用品"))
+            {
+                // 找到医生并恢复一些HP给团队
+                foreach (var survivor in state.Survivors)
+                {
+                    if (survivor.Role == "Doctor" && survivor.Hp > 0)
+                    {
+                        foreach (var target in state.Survivors)
+                        {
+                            if (target.Hp > 0 && target.Hp < 100)
+                            {
+                                target.Hp += 10;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            else if (eventDescription.Contains("奇怪的声音") || eventDescription.Contains("枪声"))
+            {
+                // 增加所有人的压力
+                foreach (var survivor in state.Survivors)
+                {
+                    if (survivor.Hp > 0)
+                    {
+                        survivor.Stress += 5;
+                    }
+                }
+            }
+
+            events.Add(evt);
+        }
+
+        /// <summary>
+        /// 触发压力相关事件
+        /// </summary>
+        private void TriggerStressEvent(GameState state, List<GameEvent> events)
+        {
+            var stressEvents = new string[]
+            {
+                "团队内部发生了激烈争吵",
+                "有人开始质疑领导决策",
+                "营地里弥漫着不安的气氛",
+                "有人提议分散行动"
+            };
+
+            var eventDescription = stressEvents[_rng.Randi() % stressEvents.Length];
+            var evt = new GameEvent(GameEvent.EventType.Custom, state.Day, eventDescription);
+
+            // 随机降低一些人之间的信任度
+            var survivors = new List<Survivor>();
+            foreach (var s in state.Survivors)
+            {
+                if (s.Hp > 0) survivors.Add(s);
+            }
+
+            if (survivors.Count >= 2)
+            {
+                var survivor1 = survivors[(int)(_rng.Randi() % survivors.Count)];
+                var survivor2 = survivors[(int)(_rng.Randi() % survivors.Count)];
+                
+                if (survivor1 != survivor2)
+                {
+                    survivor1.ModifyTrust(survivor2.SurvivorName, -10);
+                    survivor2.ModifyTrust(survivor1.SurvivorName, -10);
+                }
+            }
+
+            events.Add(evt);
+        }
+
+        /// <summary>
+        /// 触发物资相关事件
+        /// </summary>
+        private void TriggerSupplyEvent(GameState state, List<GameEvent> events)
+        {
+            var supplyEvents = new string[]
+            {
+                "在废墟中找到了少量食物",
+                "有人提议外出寻找补给",
+                "讨论是否需要节约用度",
+                "发现了一些可以利用的材料"
+            };
+
+            var eventDescription = supplyEvents[_rng.Randi() % supplyEvents.Length];
+            var evt = new GameEvent(GameEvent.EventType.Custom, state.Day, eventDescription);
+
+            if (eventDescription.Contains("找到了"))
+            {
+                // 小概率增加物资
+                state.Supplies += (int)(_rng.Randi() % 5) + 1;
+            }
+
+            events.Add(evt);
+        }
+
+        /// <summary>
+        /// 计算团队平均压力值
+        /// </summary>
+        private float CalculateAverageStress(GameState state)
+        {
+            int totalStress = 0;
+            int aliveCount = 0;
+
+            foreach (var survivor in state.Survivors)
+            {
+                if (survivor.Hp > 0)
+                {
+                    totalStress += survivor.Stress;
+                    aliveCount++;
+                }
+            }
+
+            return aliveCount > 0 ? (float)totalStress / aliveCount : 0f;
         }
     }
 }

@@ -19,6 +19,7 @@ namespace MasqueradeArk.UI
 		private VBoxContainer? _survivorCardsContainer;
 		private Button? _nextDayButton;
 		private Button? _meetingButton;
+		private Button? _autoModeButton;
 		private HBoxContainer? _choicesContainer;
 		private LineEdit? _playerInput;
 
@@ -28,6 +29,9 @@ namespace MasqueradeArk.UI
 
 		[Signal]
 		public delegate void MeetingPressedEventHandler();
+
+		[Signal]
+		public delegate void AutoModePressedEventHandler();
 
 		[Signal]
 		public delegate void ChoiceSelectedEventHandler(int choiceIndex);
@@ -61,21 +65,31 @@ namespace MasqueradeArk.UI
 				var hboxContainer = GetNode<HBoxContainer>("HBoxContainer");
 				var sidebar = hboxContainer.GetNode<VBoxContainer>("Sidebar");
 				var mainArea = hboxContainer.GetNode<VBoxContainer>("MainArea");
-				var actionArea = mainArea.GetNode<VBoxContainer>("ActionArea");
-
-				_dayLabel = sidebar.GetNode<Label>("DayLabel");
-				_suppliesLabel = sidebar.GetNode<Label>("SuppliesLabel");
-				_defenseLabel = sidebar.GetNode<Label>("DefenseLabel");
-				_survivorCardsContainer = sidebar.GetNode<ScrollContainer>("ScrollContainer")
+	
+				// 从新的UI结构获取节点引用
+				_dayLabel = sidebar.GetNode<PanelContainer>("StatusPanel")
+					.GetNode<VBoxContainer>("StatusVBox").GetNode<Label>("DayLabel");
+				_suppliesLabel = sidebar.GetNode<PanelContainer>("StatusPanel")
+					.GetNode<VBoxContainer>("StatusVBox").GetNode<Label>("SuppliesLabel");
+				_defenseLabel = sidebar.GetNode<PanelContainer>("StatusPanel")
+					.GetNode<VBoxContainer>("StatusVBox").GetNode<Label>("DefenseLabel");
+				
+				_survivorCardsContainer = sidebar.GetNode<PanelContainer>("SurvivorPanel")
+					.GetNode<VBoxContainer>("SurvivorVBox").GetNode<ScrollContainer>("ScrollContainer")
 					.GetNode<VBoxContainer>("SurvivorCardsContainer");
-
-				_eventLog = mainArea.GetNode<RichTextLabel>("EventLog");
-
-				_nextDayButton = actionArea.GetNode<Button>("NextDayButton");
-				_meetingButton = actionArea.GetNode<Button>("MeetingButton");
+	
+				_eventLog = mainArea.GetNode<PanelContainer>("EventLogPanel")
+					.GetNode<VBoxContainer>("EventLogVBox").GetNode<RichTextLabel>("EventLog");
+	
+				var actionArea = mainArea.GetNode<PanelContainer>("ActionPanel")
+					.GetNode<VBoxContainer>("ActionVBox").GetNode<VBoxContainer>("ActionArea");
+				
+				_nextDayButton = actionArea.GetNode<HBoxContainer>("ButtonsHBox").GetNode<Button>("NextDayButton");
+				_meetingButton = actionArea.GetNode<HBoxContainer>("ButtonsHBox").GetNode<Button>("MeetingButton");
+				_autoModeButton = actionArea.GetNode<HBoxContainer>("ButtonsHBox").GetNode<Button>("AutoModeButton");
 				_playerInput = actionArea.GetNode<LineEdit>("PlayerInput");
 				_choicesContainer = actionArea.GetNode<HBoxContainer>("ChoicesContainer");
-
+	
 				GD.Print("[UIManager] 所有节点引用获取成功");
 			}
 			catch (Exception ex)
@@ -99,6 +113,12 @@ namespace MasqueradeArk.UI
 			{
 				_meetingButton.Pressed += OnMeetingPressed;
 				GD.Print("[UIManager] MeetingButton 连接成功");
+			}
+
+			if (_autoModeButton != null)
+			{
+				_autoModeButton.Pressed += OnAutoModePressed;
+				GD.Print("[UIManager] AutoModeButton 连接成功");
 			}
 
 			if (_playerInput != null)
@@ -301,6 +321,12 @@ namespace MasqueradeArk.UI
 		{
 			GD.Print("[UIManager] MeetingButton 被按下");
 			EmitSignal(SignalName.MeetingPressed);
+		}
+
+		private void OnAutoModePressed()
+		{
+			GD.Print("[UIManager] AutoModeButton 被按下");
+			EmitSignal(SignalName.AutoModePressed);
 		}
 
 		private void OnChoiceSelected(int choiceIndex)
