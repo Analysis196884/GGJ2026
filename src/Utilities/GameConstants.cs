@@ -81,6 +81,30 @@ namespace MasqueradeArk.Utilities
             "Teacher"
         };
         
+        // ===== 随机事件概率 =====
+        public const float RANDOM_EVENT_CHANCE = 0.3f;
+        public const float STRESS_EVENT_CHANCE = 0.4f;
+        public const float SUPPLY_EVENT_CHANCE = 0.3f;
+        public const float ZOMBIE_EVENT_CHANCE = 0.2f;
+        public const float THEFT_EVENT_CHANCE = 0.15f;
+        public const float SABOTAGE_EVENT_CHANCE = 0.1f;
+        public const float REFUSE_EVENT_CHANCE = 0.25f;
+
+        // ===== 场所效果相关 =====
+        public const int MEDICAL_WARD_HEAL = 20;
+        public const int RECREATION_STRESS_REDUCE = 15;
+        public const int REST_AREA_TRUST_INCREASE = 5;
+
+        // ===== 丧尸攻击相关 =====
+        public const int ZOMBIE_DAMAGE_MIN = 10;
+        public const int ZOMBIE_DAMAGE_MAX = 25;
+        public const float ZOMBIE_INFECTION_CHANCE = 0.3f;
+        public const int ZOMBIE_DEFENSE_DAMAGE = 5;
+
+        // ===== 任务相关 =====
+        public const int PATROL_DEFENSE_BONUS = 3;
+        public const int REPAIR_EFFICIENCY = 15;
+        
         // ===== 调试选项 =====
         public const bool DEBUG_SHOW_SECRETS = true;
         public const bool DEBUG_VERBOSE_LOGGING = false;

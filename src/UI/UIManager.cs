@@ -38,6 +38,15 @@ namespace MasqueradeArk.UI
 
 		[Signal]
 		public delegate void PlayerInputSubmittedEventHandler(string input);
+		
+		[Signal]
+		public delegate void ExportLogPressedEventHandler();
+		
+		[Signal]
+		public delegate void LocationActionPressedEventHandler(string locationName, string actionType);
+		
+		[Signal]
+		public delegate void TaskActionPressedEventHandler(string taskId, string survivorName);
 
 		private bool _isDebugMode = false;
 
@@ -135,6 +144,86 @@ namespace MasqueradeArk.UI
 		{
 			UpdateStatus(state);
 			UpdateSurvivorCards(state);
+		}
+		
+		/// <summary>
+		/// 显示场所状态信息
+		/// </summary>
+		public void ShowLocationStatus(GameState state)
+		{
+			var locationInfo = "=== 场所状态 ===\n";
+			foreach (var location in state.Locations)
+			{
+				locationInfo += $"{location.Name}: {(location.CanUse() ? "可用" : "不可用")} ";
+				locationInfo += $"(损坏度: {location.DamageLevel}%, 效率: {location.GetEfficiency():P})\n";
+			}
+			AppendLog(locationInfo);
+		}
+		
+		/// <summary>
+		/// 显示可用的场所行动选项
+		/// </summary>
+		public void ShowLocationActions(string[] actions)
+		{
+			if (actions == null || actions.Length == 0)
+			{
+				AppendLog("当前没有可用的场所行动。");
+				return;
+			}
+			
+			AppendLog("=== 可用场所行动 ===");
+			ShowChoices(actions);
+		}
+		
+		/// <summary>
+		/// 显示可用任务列表
+		/// </summary>
+		public void ShowAvailableTasks(List<object> tasks)
+		{
+			if (tasks == null || tasks.Count == 0)
+			{
+				AppendLog("当前没有可用任务。");
+				return;
+			}
+			
+			var taskInfo = "=== 可用任务 ===\n";
+			var taskChoices = new List<string>();
+			
+			for (int i = 0; i < tasks.Count; i++)
+			{
+				var task = tasks[i];
+				// 这里需要根据Task类的实际结构来获取信息
+				taskInfo += $"{i + 1}. 任务详情\n";
+				taskChoices.Add($"执行任务 {i + 1}");
+			}
+			
+			AppendLog(taskInfo);
+			ShowChoices(taskChoices.ToArray());
+		}
+		
+		/// <summary>
+		/// 显示幸存者选择界面用于任务分配
+		/// </summary>
+		public void ShowSurvivorChoiceForTask(GameState state, string taskName)
+		{
+			var choices = new List<string>();
+			foreach (var survivor in state.Survivors)
+			{
+				if (survivor.Hp > 0)
+				{
+					choices.Add($"{survivor.SurvivorName} ({survivor.Role})");
+				}
+			}
+			
+			if (choices.Count > 0)
+			{
+				AppendLog($"=== 选择执行 {taskName} 的幸存者 ===");
+				ShowChoices(choices.ToArray());
+			}
+			else
+			{
+				AppendLog("没有可用的幸存者执行任务。");
+			}
 		}
 
 		/// <summary>

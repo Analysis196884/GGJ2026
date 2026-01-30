@@ -27,6 +27,10 @@ namespace MasqueradeArk.Core
         [Export]
         public Godot.Collections.Array<Survivor> Survivors { get; set; } = new Godot.Collections.Array<Survivor>();
 
+        /// <summary>场所系统</summary>
+        [Export]
+        public Godot.Collections.Array<Location> Locations { get; set; } = new Godot.Collections.Array<Location>();
+
         /// <summary>事件日志 (供 UI / Debug / 存档使用)</summary>
         private List<string> _eventLog = [];
 
@@ -75,7 +79,30 @@ namespace MasqueradeArk.Core
             Supplies = GameConstants.INITIAL_SUPPLIES;
             Defense = GameConstants.INITIAL_DEFENSE;
             _eventLog.Clear();
+            
+            // 初始化场所
+            InitializeLocations();
+            
             AppendLog("欢迎来到废墟。你和幸存者们开始了新的一天。");
+        }
+
+        /// <summary>初始化场所</summary>
+        private void InitializeLocations()
+        {
+            Locations.Clear();
+            
+            // 创建各种场所
+            var medicalWard = new Location("医疗区", "可以治疗伤患，恢复生命值", Location.LocationType.MedicalWard, 4);
+            var recreationRoom = new Location("棋牌室", "休闲娱乐场所，可以减少压力", Location.LocationType.RecreationRoom, 6);
+            var storageRoom = new Location("储藏室", "存储物资的地方", Location.LocationType.StorageRoom, 8);
+            var restArea = new Location("休息区", "社交互动场所，增加信任度", Location.LocationType.RestArea, 8);
+            var mainHall = new Location("主大厅", "幸存者们聚集的主要场所", Location.LocationType.MainHall, 12);
+            
+            Locations.Add(medicalWard);
+            Locations.Add(recreationRoom);
+            Locations.Add(storageRoom);
+            Locations.Add(restArea);
+            Locations.Add(mainHall);
         }
 
         /// <summary>向事件日志添加记录</summary>
@@ -143,6 +170,40 @@ namespace MasqueradeArk.Core
             return count;
         }
 
+        /// <summary>获取指定类型的场所</summary>
+        public Location GetLocation(Location.LocationType locationType)
+        {
+            foreach (var location in Locations)
+            {
+                if (location.Type == locationType)
+                    return location;
+            }
+            return null;
+        }
+
+        /// <summary>获取指定名称的场所</summary>
+        public Location GetLocation(string locationName)
+        {
+            foreach (var location in Locations)
+            {
+                if (location.Name == locationName)
+                    return location;
+            }
+            return null;
+        }
+
+        /// <summary>获取所有可用的场所</summary>
+        public List<Location> GetAvailableLocations()
+        {
+            var availableLocations = new List<Location>();
+            foreach (var location in Locations)
+            {
+                if (location.CanUse())
+                    availableLocations.Add(location);
+            }
+            return availableLocations;
+        }
+
         /// <summary>创建深拷贝</summary>
         public GameState Clone()
         {
@@ -156,6 +217,11 @@ namespace MasqueradeArk.Core
             foreach (var survivor in Survivors)
             {
                 clone.Survivors.Add(survivor.Clone());
+            }
+
+            foreach (var location in Locations)
+            {
+                clone.Locations.Add(location);
             }
 
             foreach (var log in _eventLog)

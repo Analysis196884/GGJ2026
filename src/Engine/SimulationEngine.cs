@@ -293,23 +293,47 @@ namespace MasqueradeArk.Engine
         /// </summary>
         private void ProcessRandomEvents(GameState state, List<GameEvent> events)
         {
-            // 基础随机事件概率 (每天5%概率)
-            if (_rng.Randf() < 0.05f)
+            // 基础随机事件概率
+            if (_rng.Randf() < GameConstants.RANDOM_EVENT_CHANCE)
             {
                 TriggerRandomEvent(state, events);
             }
 
             // 压力相关事件：当团队整体压力过高时增加概率
             float avgStress = CalculateAverageStress(state);
-            if (avgStress > 60 && _rng.Randf() < 0.15f)
+            if (avgStress > GameConstants.STRESS_BREAKDOWN_THRESHOLD && _rng.Randf() < GameConstants.STRESS_EVENT_CHANCE)
             {
                 TriggerStressEvent(state, events);
             }
 
             // 物资短缺相关事件
-            if (state.Supplies < 10 && _rng.Randf() < 0.2f)
+            if (state.Supplies < 10 && _rng.Randf() < GameConstants.SUPPLY_EVENT_CHANCE)
             {
                 TriggerSupplyEvent(state, events);
+            }
+            
+            // 丧尸相关事件
+            if (_rng.Randf() < GameConstants.ZOMBIE_EVENT_CHANCE)
+            {
+                TriggerZombieEvent(state, events);
+            }
+            
+            // 偷窃事件（基于饥饿值）
+            if (_rng.Randf() < GameConstants.THEFT_EVENT_CHANCE)
+            {
+                TriggerTheftEvent(state, events);
+            }
+            
+            // 破坏事件（基于高压力）
+            if (avgStress > 60 && _rng.Randf() < GameConstants.SABOTAGE_EVENT_CHANCE)
+            {
+                TriggerSabotageEvent(state, events);
+            }
+            
+            // 拒绝事件（基于低信任度）
+            if (_rng.Randf() < GameConstants.REFUSE_EVENT_CHANCE)
+            {
+                TriggerRefuseEvent(state, events);
             }
         }
 
@@ -445,6 +469,198 @@ namespace MasqueradeArk.Engine
             }
 
             return aliveCount > 0 ? (float)totalStress / aliveCount : 0f;
+        }
+
+        /// <summary>
+        /// 触发丧尸相关事件
+        /// </summary>
+        private void TriggerZombieEvent(GameState state, List<GameEvent> events)
+        {
+            var zombieEvents = new string[]
+            {
+                "丧尸群袭击庇护所",
+                "发现丧尸踪迹",
+                "庇护所围墙被破坏",
+                "丧尸攻击幸存者"
+            };
+
+            var eventDescription = zombieEvents[_rng.Randi() % zombieEvents.Length];
+            var evt = new GameEvent(GameEvent.EventType.Custom, state.Day, eventDescription);
+
+            if (eventDescription.Contains("袭击庇护所"))
+            {
+                // 降低庇护所防御值
+                state.Defense -= GameConstants.ZOMBIE_DEFENSE_DAMAGE;
+                state.Defense = Math.Max(0, state.Defense);
+                
+                // 随机攻击幸存者
+                var aliveSurvivors = new List<Survivor>();
+                foreach (var s in state.Survivors)
+                {
+                    if (s.Hp > 0) aliveSurvivors.Add(s);
+                }
+                
+                if (aliveSurvivors.Count > 0)
+                {
+                    var target = aliveSurvivors[(int)(_rng.Randi() % aliveSurvivors.Count)];
+                    int damage = (int)(_rng.Randi() % (GameConstants.ZOMBIE_DAMAGE_MAX - GameConstants.ZOMBIE_DAMAGE_MIN)) + GameConstants.ZOMBIE_DAMAGE_MIN;
+                    target.Hp -= damage;
+                    
+                    // 感染概率
+                    if (_rng.Randf() < GameConstants.ZOMBIE_INFECTION_CHANCE)
+                    {
+                        target.AddSecret("Infected");
+                        evt.SetContextValue("infected", target.SurvivorName);
+                    }
+                    
+                    evt.AddInvolvedNpc(target.SurvivorName);
+                }
+            }
+            else if (eventDescription.Contains("围墙被破坏"))
+            {
+                state.Defense -= GameConstants.ZOMBIE_DEFENSE_DAMAGE * 2;
+                state.Defense = Math.Max(0, state.Defense);
+            }
+
+            events.Add(evt);
+        }
+
+        /// <summary>
+        /// 触发偷窃事件
+        /// </summary>
+        private void TriggerTheftEvent(GameState state, List<GameEvent> events)
+        {
+            var hungriestSurvivor = GetMostHungrySurvivor(state);
+            if (hungriestSurvivor != null && hungriestSurvivor.Hunger > 50 && state.Supplies > 0)
+            {
+                state.Supplies -= GameConstants.THEFT_AMOUNT;
+                hungriestSurvivor.Hunger = Math.Max(0, hungriestSurvivor.Hunger - 20);
+                
+                var evt = new GameEvent(
+                    GameEvent.EventType.SuppliesStolen,
+                    state.Day,
+                    $"发现物资被偷！{hungriestSurvivor.SurvivorName} 看起来很满足..."
+                );
+                evt.AddInvolvedNpc(hungriestSurvivor.SurvivorName);
+                events.Add(evt);
+            }
+        }
+
+        /// <summary>
+        /// 触发破坏事件
+        /// </summary>
+        private void TriggerSabotageEvent(GameState state, List<GameEvent> events)
+        {
+            var stressedSurvivor = GetMostStressedSurvivor(state);
+            if (stressedSurvivor != null && stressedSurvivor.Stress > 70)
+            {
+                // 随机破坏一个场所
+                var availableLocations = new List<Location>();
+                foreach (var loc in state.Locations)
+                {
+                    if (loc.CanUse()) availableLocations.Add(loc);
+                }
+                
+                if (availableLocations.Count > 0)
+                {
+                    var targetLocation = availableLocations[(int)(_rng.Randi() % availableLocations.Count)];
+                    targetLocation.Damage(30);
+                    
+                    var evt = new GameEvent(
+                        GameEvent.EventType.Custom,
+                        state.Day,
+                        $"{stressedSurvivor.SurvivorName} 在愤怒中破坏了{targetLocation.Name}！"
+                    );
+                    evt.AddInvolvedNpc(stressedSurvivor.SurvivorName);
+                    events.Add(evt);
+                    
+                    // 减少破坏者的压力
+                    stressedSurvivor.Stress = Math.Max(0, stressedSurvivor.Stress - 20);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 触发拒绝事件
+        /// </summary>
+        private void TriggerRefuseEvent(GameState state, List<GameEvent> events)
+        {
+            var refuseActions = new string[]
+            {
+                "拒绝参与巡逻",
+                "拒绝分享物资",
+                "拒绝协助修理",
+                "拒绝参加会议"
+            };
+            
+            // 寻找信任度最低的幸存者
+            Survivor lowTrustSurvivor = null;
+            int lowestTrust = 100;
+            
+            foreach (var survivor in state.Survivors)
+            {
+                if (survivor.Hp > 0)
+                {
+                    int avgTrust = survivor.GetTrust(GameConstants.PLAYER_NAME);
+                    if (avgTrust < lowestTrust)
+                    {
+                        lowestTrust = avgTrust;
+                        lowTrustSurvivor = survivor;
+                    }
+                }
+            }
+            
+            if (lowTrustSurvivor != null && lowestTrust < 30)
+            {
+                var action = refuseActions[_rng.Randi() % refuseActions.Length];
+                var evt = new GameEvent(
+                    GameEvent.EventType.Custom,
+                    state.Day,
+                    $"{lowTrustSurvivor.SurvivorName} {action}，理由是不信任团队决策。"
+                );
+                evt.AddInvolvedNpc(lowTrustSurvivor.SurvivorName);
+                events.Add(evt);
+            }
+        }
+
+        /// <summary>
+        /// 获取饥饿值最高的幸存者
+        /// </summary>
+        private Survivor GetMostHungrySurvivor(GameState state)
+        {
+            Survivor hungriest = null;
+            int maxHunger = 0;
+            
+            foreach (var survivor in state.Survivors)
+            {
+                if (survivor.Hp > 0 && survivor.Hunger > maxHunger)
+                {
+                    maxHunger = survivor.Hunger;
+                    hungriest = survivor;
+                }
+            }
+            
+            return hungriest;
+        }
+
+        /// <summary>
+        /// 获取压力值最高的幸存者
+        /// </summary>
+        private Survivor GetMostStressedSurvivor(GameState state)
+        {
+            Survivor mostStressed = null;
+            int maxStress = 0;
+            
+            foreach (var survivor in state.Survivors)
+            {
+                if (survivor.Hp > 0 && survivor.Stress > maxStress)
+                {
+                    maxStress = survivor.Stress;
+                    mostStressed = survivor;
+                }
+            }
+            
+            return mostStressed;
         }
     }
 }

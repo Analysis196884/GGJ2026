@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MasqueradeArk.Core;
 using MasqueradeArk.Engine;
 using MasqueradeArk.UI;
@@ -20,6 +21,11 @@ namespace MasqueradeArk.Manager
         private SimulationEngine? _simulationEngine;
         private NarrativeEngine? _narrativeEngine;
         private UIManager? _uiManager;
+        
+        // 新增管理器
+        private LocationManager? _locationManager;
+        private TaskManager? _taskManager;
+        private LogExporter? _logExporter;
 
         // 游戏状态
         private bool _isGameOver = false;
@@ -58,6 +64,16 @@ namespace MasqueradeArk.Manager
 
             _narrativeEngine = new NarrativeEngine();
             AddChild(_narrativeEngine);
+
+            // 初始化新的管理器
+            _locationManager = new LocationManager();
+            AddChild(_locationManager);
+
+            _taskManager = new TaskManager();
+            AddChild(_taskManager);
+
+            _logExporter = new LogExporter();
+            AddChild(_logExporter);
 
             // 尝试从场景树获取 UIManager
             _uiManager = GetNode<UIManager>("UIManager");
@@ -178,6 +194,25 @@ namespace MasqueradeArk.Manager
                     new Callable(this, MethodName.OnPlayerInputSubmitted)
                 );
                 GD.Print("[GameManager] PlayerInputSubmitted 连接成功");
+                
+                // 连接新的信号
+                _uiManager.Connect(
+                    UIManager.SignalName.ExportLogPressed,
+                    new Callable(this, MethodName.OnExportLogPressed)
+                );
+                GD.Print("[GameManager] ExportLogPressed 连接成功");
+                
+                _uiManager.Connect(
+                    UIManager.SignalName.LocationActionPressed,
+                    new Callable(this, MethodName.OnLocationActionPressed)
+                );
+                GD.Print("[GameManager] LocationActionPressed 连接成功");
+                
+                _uiManager.Connect(
+                    UIManager.SignalName.TaskActionPressed,
+                    new Callable(this, MethodName.OnTaskActionPressed)
+                );
+                GD.Print("[GameManager] TaskActionPressed 连接成功");
                 
                 GD.Print("[GameManager] 所有信号连接完成");
             }
@@ -488,6 +523,54 @@ namespace MasqueradeArk.Manager
             else
             {
                 GD.PrintErr($"存档文件不存在：{savePath}");
+            }
+            
+            /// <summary>
+            /// 导出日志按钮事件处理
+            /// </summary>
+            private void OnExportLogPressed()
+            {
+                GD.Print("[GameManager] ExportLogPressed 被按下");
+                if (_logExporter != null && _gameState != null)
+                {
+                    _logExporter.ExportLogsToFile(_gameState);
+                    _logExporter.ExportLogsToJson(_gameState);
+                    _logExporter.ExportGameSummary(_gameState);
+                    _uiManager?.AppendLog("日志已导出到用户数据目录");
+                }
+            }
+            
+            /// <summary>
+            /// 场所行动按钮事件处理
+            /// </summary>
+            private void OnLocationActionPressed(string locationName, string actionType)
+            {
+                GD.Print($"[GameManager] LocationActionPressed: {locationName}, {actionType}");
+                if (_gameState != null && _locationManager != null)
+                {
+                    _uiManager?.ShowLocationStatus(_gameState);
+                    
+                    var actions = _locationManager.GetAvailableLocationActions(_gameState);
+                    _uiManager?.ShowLocationActions(actions.ToArray());
+                }
+            }
+            
+            /// <summary>
+            /// 任务行动按钮事件处理
+            /// </summary>
+            private void OnTaskActionPressed(string taskId, string survivorName)
+            {
+                GD.Print($"[GameManager] TaskActionPressed: {taskId}, {survivorName}");
+                if (_gameState != null && _taskManager != null)
+                {
+                    var availableTasks = _taskManager.GenerateAvailableTasks(_gameState);
+                    var taskObjects = new List<object>();
+                    foreach (var task in availableTasks)
+                    {
+                        taskObjects.Add(task);
+                    }
+                    _uiManager?.ShowAvailableTasks(taskObjects);
+                }
             }
         }
     }
