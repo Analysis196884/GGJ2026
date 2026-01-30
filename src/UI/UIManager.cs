@@ -20,6 +20,9 @@ namespace MasqueradeArk.UI
 		private Button? _nextDayButton;
 		private Button? _meetingButton;
 		private Button? _autoModeButton;
+		private Button? _locationActionButton;
+		private Button? _taskManagementButton;
+		private Button? _exportLogButton;
 		private HBoxContainer? _choicesContainer;
 		private LineEdit? _playerInput;
 
@@ -96,6 +99,13 @@ namespace MasqueradeArk.UI
 				_nextDayButton = actionArea.GetNode<HBoxContainer>("ButtonsHBox").GetNode<Button>("NextDayButton");
 				_meetingButton = actionArea.GetNode<HBoxContainer>("ButtonsHBox").GetNode<Button>("MeetingButton");
 				_autoModeButton = actionArea.GetNode<HBoxContainer>("ButtonsHBox").GetNode<Button>("AutoModeButton");
+				
+				// 获取新增的按钮
+				var actionButtonsHBox = actionArea.GetNode<HBoxContainer>("ActionButtonsHBox");
+				_locationActionButton = actionButtonsHBox.GetNode<Button>("LocationActionButton");
+				_taskManagementButton = actionButtonsHBox.GetNode<Button>("TaskManagementButton");
+				_exportLogButton = actionButtonsHBox.GetNode<Button>("ExportLogButton");
+				
 				_playerInput = actionArea.GetNode<LineEdit>("PlayerInput");
 				_choicesContainer = actionArea.GetNode<HBoxContainer>("ChoicesContainer");
 	
@@ -128,6 +138,24 @@ namespace MasqueradeArk.UI
 			{
 				_autoModeButton.Pressed += OnAutoModePressed;
 				GD.Print("[UIManager] AutoModeButton 连接成功");
+			}
+
+			if (_locationActionButton != null)
+			{
+				_locationActionButton.Pressed += OnLocationActionPressed;
+				GD.Print("[UIManager] LocationActionButton 连接成功");
+			}
+
+			if (_taskManagementButton != null)
+			{
+				_taskManagementButton.Pressed += OnTaskManagementPressed;
+				GD.Print("[UIManager] TaskManagementButton 连接成功");
+			}
+
+			if (_exportLogButton != null)
+			{
+				_exportLogButton.Pressed += OnExportLogPressed;
+				GD.Print("[UIManager] ExportLogButton 连接成功");
 			}
 
 			if (_playerInput != null)
@@ -178,7 +206,7 @@ namespace MasqueradeArk.UI
 		/// <summary>
 		/// 显示可用任务列表
 		/// </summary>
-		public void ShowAvailableTasks(List<object> tasks)
+		public void ShowAvailableTasks(List<MasqueradeArk.Manager.TaskManager.Task> tasks)
 		{
 			if (tasks == null || tasks.Count == 0)
 			{
@@ -192,9 +220,23 @@ namespace MasqueradeArk.UI
 			for (int i = 0; i < tasks.Count; i++)
 			{
 				var task = tasks[i];
-				// 这里需要根据Task类的实际结构来获取信息
-				taskInfo += $"{i + 1}. 任务详情\n";
-				taskChoices.Add($"执行任务 {i + 1}");
+				taskInfo += $"{i + 1}. {task.Name}\n";
+				taskInfo += $"   描述: {task.Description}\n";
+				taskInfo += $"   持续时间: {task.Duration} 天\n";
+				
+				// 显示任务要求
+				if (task.Requirements != null && task.Requirements.Count > 0)
+				{
+					taskInfo += "   要求: ";
+					foreach (var req in task.Requirements)
+					{
+						taskInfo += $"{req.Key}:{req.Value} ";
+					}
+					taskInfo += "\n";
+				}
+				
+				taskInfo += "\n";
+				taskChoices.Add($"选择任务: {task.Name}");
 			}
 			
 			AppendLog(taskInfo);
@@ -211,7 +253,7 @@ namespace MasqueradeArk.UI
 			{
 				if (survivor.Hp > 0)
 				{
-					choices.Add($"{survivor.SurvivorName} ({survivor.Role})");
+					choices.Add($"{survivor.SurvivorName} ({survivor.Role}) - HP:{survivor.Hp} 体力:{survivor.Stamina}");
 				}
 			}
 			
@@ -224,6 +266,27 @@ namespace MasqueradeArk.UI
 			{
 				AppendLog("没有可用的幸存者执行任务。");
 			}
+		}
+		
+		/// <summary>
+		/// 显示当前进行中的任务
+		/// </summary>
+		public void ShowActiveTasks(List<MasqueradeArk.Manager.TaskManager.Task> activeTasks)
+		{
+			if (activeTasks == null || activeTasks.Count == 0)
+			{
+				AppendLog("当前没有进行中的任务。");
+				return;
+			}
+			
+			var taskInfo = "=== 进行中的任务 ===\n";
+			foreach (var task in activeTasks)
+			{
+				taskInfo += $"• {task.Name} - 执行者: {task.AssignedSurvivor}\n";
+				taskInfo += $"  进度: {task.Progress}/{task.Duration} 天\n";
+			}
+			
+			AppendLog(taskInfo);
 		}
 
 		/// <summary>
@@ -434,6 +497,24 @@ namespace MasqueradeArk.UI
 				if (_playerInput != null)
 					_playerInput.Clear();
 			}
+		}
+
+		private void OnLocationActionPressed()
+		{
+			GD.Print("[UIManager] LocationActionButton 被按下");
+			EmitSignal(SignalName.LocationActionPressed, "", "");
+		}
+
+		private void OnTaskManagementPressed()
+		{
+			GD.Print("[UIManager] TaskManagementButton 被按下");
+			EmitSignal(SignalName.TaskActionPressed, "", "");
+		}
+
+		private void OnExportLogPressed()
+		{
+			GD.Print("[UIManager] ExportLogButton 被按下");
+			EmitSignal(SignalName.ExportLogPressed);
 		}
 
 		/// <summary>

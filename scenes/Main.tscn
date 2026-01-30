@@ -170,6 +170,39 @@ theme_override_font_sizes/font_size = 14
 layout_mode = 2
 custom_minimum_size = Vector2(0, 10)
 
+[node name="ActionButtonsHBox" type="HBoxContainer" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea"]
+layout_mode = 2
+
+[node name="LocationActionButton" type="Button" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ActionButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "场所行动"
+theme_override_font_sizes/font_size = 14
+
+[node name="VSeparator7" type="VSeparator" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ActionButtonsHBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(10, 0)
+
+[node name="TaskManagementButton" type="Button" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ActionButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "任务管理"
+theme_override_font_sizes/font_size = 14
+
+[node name="VSeparator8" type="VSeparator" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ActionButtonsHBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(10, 0)
+
+[node name="ExportLogButton" type="Button" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ActionButtonsHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "导出日志"
+theme_override_font_sizes/font_size = 14
+
+[node name="VSeparator9" type="VSeparator" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 10)
+
 [node name="InputLabel" type="Label" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea"]
 layout_mode = 2
 text = "输入控制台命令："
