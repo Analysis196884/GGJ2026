@@ -63,25 +63,25 @@ AIeve/
 ```csharp
 public class Survivor : Resource
 {
-    // 基础属性
-    public string SurvivorName;
-    public string Role;              // Doctor, Mercenary, Engineer, etc.
-    
-    // 生存属性 (0-100)
-    public int Hp;
-    public int Hunger;
-    public int Stamina;
-    
-    // 精神属性
-    public int Stress;               // 压力值 (0-100)
-    public int Integrity;            // 道德值 (-100~100)
-    public int Suspicion;            // 被怀疑程度 (0-100)
-    
-    // 秘密集合
-    public string[] Secrets;         // "Infected", "Thief", etc.
-    
-    // 关系网
-    public Dictionary<string, int> Relationships;
+	// 基础属性
+	public string SurvivorName;
+	public string Role;              // Doctor, Mercenary, Engineer, etc.
+	
+	// 生存属性 (0-100)
+	public int Hp;
+	public int Hunger;
+	public int Stamina;
+	
+	// 精神属性
+	public int Stress;               // 压力值 (0-100)
+	public int Integrity;            // 道德值 (-100~100)
+	public int Suspicion;            // 被怀疑程度 (0-100)
+	
+	// 秘密集合
+	public string[] Secrets;         // "Infected", "Thief", etc.
+	
+	// 关系网
+	public Dictionary<string, int> Relationships;
 }
 ```
 
@@ -90,11 +90,11 @@ public class Survivor : Resource
 ```csharp
 public class GameState : Resource
 {
-    public int Day;
-    public int Supplies;             // 公共物资
-    public int Defense;              // 基地防御值
-    public Survivor[] Survivors;
-    public List<string> EventLog;
+	public int Day;
+	public int Supplies;             // 公共物资
+	public int Defense;              // 基地防御值
+	public Survivor[] Survivors;
+	public List<string> EventLog;
 }
 ```
 
@@ -108,11 +108,11 @@ public class GameState : Resource
 
 ```
 若 supplies > 0:
-    每名 NPC: hunger = 0
-    supplies -= survivor_count
+	每名 NPC: hunger = 0
+	supplies -= survivor_count
 
 若 supplies <= 0:
-    每名 NPC: hunger += 20, stress += 10
+	每名 NPC: hunger += 20, stress += 10
 ```
 
 #### 秘密事件
@@ -126,8 +126,8 @@ public class GameState : Resource
 **感染恶化**：
 ```
 若有 "Infected" 秘密:
-    每天 hp -= 5
-    20% 概率被发现
+	每天 hp -= 5
+	20% 概率被发现
 ```
 
 #### 精神状态
@@ -198,18 +198,18 @@ public class GameState : Resource
 
 ```
 [玩家点击 Next Day]
-        ↓
+		↓
 GameManager.AdvanceDay()
-        ↓
+		↓
 SimulationEngine.AdvanceDay()  ← 数值计算
-        ↓
+		↓
 for each event:
-    NarrativeEngine.Generate()  ← 叙事生成
-    UIManager.AppendLog()       ← 显示文本
-    UIManager.ShowChoices()     ← 展示选项
-        ↓
+	NarrativeEngine.Generate()  ← 叙事生成
+	UIManager.AppendLog()       ← 显示文本
+	UIManager.ShowChoices()     ← 展示选项
+		↓
 UIManager.UpdateUI()           ← 刷新所有状态
-        ↓
+		↓
 CheckGameOver()
 ```
 
@@ -290,9 +290,9 @@ infect <name>           # 感染指定幸存者
 ```csharp
 private async Task<string> GenerateWithLLM(GameEvent evt, GameState state)
 {
-    var prompt = BuildPrompt(evt, state);
-    var response = await _llmClient.CreateCompletion(prompt);
-    return response.Text;
+	var prompt = BuildPrompt(evt, state);
+	var response = await _llmClient.CreateCompletion(prompt);
+	return response.Text;
 }
 ```
 
@@ -303,8 +303,8 @@ private async Task<string> GenerateWithLLM(GameEvent evt, GameState state)
 ```csharp
 public enum EventType
 {
-    // ... 现有事件
-    CustomEvent,  // 新事件
+	// ... 现有事件
+	CustomEvent,  // 新事件
 }
 ```
 
@@ -312,8 +312,8 @@ public enum EventType
 
 ```csharp
 case GameEvent.EventType.CustomEvent:
-    result.NarrativeText = GenerateCustomNarrative(evt);
-    break;
+	result.NarrativeText = GenerateCustomNarrative(evt);
+	break;
 ```
 
 ### 修改游戏规则

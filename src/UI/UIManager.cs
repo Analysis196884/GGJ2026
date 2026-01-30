@@ -92,6 +92,13 @@ namespace MasqueradeArk.UI
 	
 				_eventLog = mainArea.GetNode<PanelContainer>("EventLogPanel")
 					.GetNode<VBoxContainer>("EventLogVBox").GetNode<RichTextLabel>("EventLog");
+				if (_eventLog != null)
+				{
+					// 扩大事件日志窗口：设置最小尺寸并允许横/纵向扩展以占满可用空间
+					_eventLog.CustomMinimumSize = new Vector2(600, 400);
+					_eventLog.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+					_eventLog.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+				}
 	
 				var actionArea = mainArea.GetNode<PanelContainer>("ActionPanel")
 					.GetNode<VBoxContainer>("ActionVBox").GetNode<VBoxContainer>("ActionArea");
@@ -253,7 +260,7 @@ namespace MasqueradeArk.UI
 			{
 				if (survivor.Hp > 0)
 				{
-					choices.Add($"{survivor.SurvivorName} ({survivor.Role}) - HP:{survivor.Hp} 体力:{survivor.Stamina}");
+					choices.Add($"{survivor.SurvivorName}({survivor.Role})");
 				}
 			}
 			
@@ -415,8 +422,14 @@ namespace MasqueradeArk.UI
 		/// </summary>
 		public void ShowChoices(string[] choices)
 		{
+			GD.Print($"[UIManager] ShowChoices called, choices length: {(choices==null?0:choices.Length)} _choicesContainer is {(_choicesContainer==null?"null":"not null")}");
 			if (_choicesContainer == null)
 				return;
+
+			// 确保容器可见并扩展，以便按钮能显示
+			_choicesContainer.Visible = true;
+			_choicesContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+			_choicesContainer.CustomMinimumSize = new Vector2(200, 0);
 
 			// 清空旧按钮
 			foreach (var child in _choicesContainer.GetChildren())
@@ -425,14 +438,18 @@ namespace MasqueradeArk.UI
 			}
 
 			if (choices == null || choices.Length == 0)
+			{
+				GD.Print("[UIManager] ShowChoices: no choices provided");
 				return;
+			}
 
 			for (int i = 0; i < choices.Length; i++)
 			{
 				int choiceIndex = i; // 闭包捕获
 				var button = new Button { Text = choices[i] };
 				button.Pressed += () => OnChoiceSelected(choiceIndex);
-				_choicesContainer.AddChild(button);
+				_choicesContainer.CallDeferred("add_child", button);
+				GD.Print($"[UIManager] Added choice button {i}: {choices[i]}");
 			}
 		}
 
@@ -484,8 +501,8 @@ namespace MasqueradeArk.UI
 		private void OnChoiceSelected(int choiceIndex)
 		{
 			GD.Print($"[UIManager] 选择了选项 {choiceIndex}");
+			// 不立即隐藏选择按钮；由 GameManager 在处理完选择后调用 HideChoices()
 			EmitSignal(SignalName.ChoiceSelected, choiceIndex);
-			HideChoices();
 		}
 
 		private void OnPlayerInputSubmitted(string input)

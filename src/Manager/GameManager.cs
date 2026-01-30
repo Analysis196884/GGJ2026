@@ -400,7 +400,7 @@ namespace MasqueradeArk.Manager
 					{
 						if (survivor.Hp > 0)
 						{
-							survivorChoices.Add($"{survivor.SurvivorName} ({survivor.Role}) - HP:{survivor.Hp} 体力:{survivor.Stamina}");
+							survivorChoices.Add($"{survivor.SurvivorName} ({survivor.Role})");
 						}
 					}
 					
@@ -752,7 +752,7 @@ namespace MasqueradeArk.Manager
 				if (actions.Count > 0)
 				{
 					_currentUIMode = "location_action";
-					// _uiManager?.ShowLocationActions(actions.ToArray());
+					_uiManager?.ShowLocationActions(actions.ToArray());
 				}
 				else
 				{
@@ -779,7 +779,7 @@ namespace MasqueradeArk.Manager
 				{
 					_pendingTasks = availableTasks;
 					_currentUIMode = "task_select";
-					// _uiManager?.ShowAvailableTasks(availableTasks);
+					_uiManager?.ShowAvailableTasks(availableTasks);
 				}
 				else
 				{
