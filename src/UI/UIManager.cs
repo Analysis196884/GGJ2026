@@ -25,6 +25,7 @@ namespace MasqueradeArk.UI
 		private Button? _exportLogButton;
 		private HBoxContainer? _choicesContainer;
 		private LineEdit? _playerInput;
+		private InteractionDialog? _interactionDialog;
 
 		// 信号
 		[Signal]
@@ -50,6 +51,9 @@ namespace MasqueradeArk.UI
 		
 		[Signal]
 		public delegate void TaskActionPressedEventHandler(string taskId, string survivorName);
+		
+		[Signal]
+		public delegate void SurvivorCardClickedEventHandler(Survivor survivor);
 
 		private bool _isDebugMode = false;
 
@@ -62,6 +66,9 @@ namespace MasqueradeArk.UI
 			
 			// 连接按钮信号
 			ConnectButtonSignals();
+			
+			// 初始化交互对话框
+			InitializeInteractionDialog();
 			
 			_isDebugMode = OS.IsDebugBuild();
 			GD.Print("[UIManager] 初始化完成");
@@ -355,6 +362,21 @@ namespace MasqueradeArk.UI
 			// Hunger 条
 			vbox.AddChild(CreateProgressBar("Hunger", survivor.Hunger, 100, Colors.Brown));
 
+			// 添加交互按钮（覆盖整个卡片）
+			var interactButton = new Button();
+			interactButton.Name = "InteractButton";
+			interactButton.Text = "对话";
+			interactButton.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+			interactButton.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+			interactButton.Flat = true; // 透明背景
+			interactButton.Pressed += () =>
+			{
+				GD.Print($"[UIManager] 幸存者卡片按钮被点击: {survivor.SurvivorName}");
+				// 发出幸存者卡片点击信号
+				EmitSignal(SignalName.SurvivorCardClicked, survivor);
+			};
+			vbox.AddChild(interactButton);
+
 			return panel;
 		}
 
@@ -526,6 +548,72 @@ namespace MasqueradeArk.UI
 		public void SetDebugMode(bool enabled)
 		{
 			_isDebugMode = enabled;
+		}
+
+		/// <summary>
+		/// 初始化交互对话框
+		/// </summary>
+		private void InitializeInteractionDialog()
+		{
+			// 加载场景
+			var scene = GD.Load<PackedScene>("res://scenes/InteractionDialog.tscn");
+			if (scene != null)
+			{
+				_interactionDialog = scene.Instantiate<InteractionDialog>();
+				AddChild(_interactionDialog);
+				// 连接信号
+				_interactionDialog.InteractionCompleted += OnInteractionCompleted;
+				GD.Print("[UIManager] 交互对话框已加载");
+			}
+			else
+			{
+				GD.PrintErr("[UIManager] 无法加载交互对话框场景，创建默认实例");
+				_interactionDialog = new InteractionDialog();
+				AddChild(_interactionDialog);
+				_interactionDialog.InteractionCompleted += OnInteractionCompleted;
+			}
+			// 默认隐藏
+			_interactionDialog.Visible = false;
+		}
+
+		/// <summary>
+		/// 显示与指定 NPC 的交互对话框
+		/// </summary>
+		public void ShowInteractionDialog(Survivor npc)
+		{
+			GD.Print($"[UIManager] 显示交互对话框给 {npc.SurvivorName}");
+			if (_interactionDialog != null)
+			{
+				_interactionDialog.ShowDialog(npc);
+			}
+			else
+			{
+				GD.PrintErr("[UIManager] 交互对话框为空");
+			}
+		}
+
+		/// <summary>
+		/// 处理交互完成事件
+		/// </summary>
+		private void OnInteractionCompleted(NarrativeActionResponse response)
+		{
+			// 将 NPC 回应文本记录到日志
+			if (!string.IsNullOrEmpty(response.NarrativeText))
+			{
+				AppendLog($"> {response.NarrativeText}");
+			}
+			// 根据成功状态提供视觉反馈（TODO: 播放音效/特效）
+			if (response.IsSuccess)
+			{
+				AppendLog("[成功]");
+			}
+			else
+			{
+				AppendLog("[失败]");
+			}
+			// 更新 UI 以反映数值变化
+			// （因为 NarrativeEngine 已经应用了变化，只需刷新卡片）
+			// 注意：UIManager.UpdateUI 将在下次游戏循环时被调用
 		}
 	}
 }

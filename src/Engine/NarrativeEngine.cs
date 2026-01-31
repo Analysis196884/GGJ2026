@@ -39,6 +39,9 @@ namespace MasqueradeArk.Engine
         public override void _Ready()
         {
         	base._Ready();
+        	// 将自己添加到组中，便于其他节点查找
+        	AddToGroup("NarrativeEngine");
+        	
         	// 如果还没有设置 LLMClient，尝试从场景树查找
         	if (_llmClient == null)
         	{
@@ -61,11 +64,12 @@ namespace MasqueradeArk.Engine
         		}
         	}
         	
-        	// 如果仍未找到，创建默认实例
+        	// 如果仍未找到，创建默认实例（但应该由 GameManager 提供）
         	if (_llmClient == null)
         	{
+        		GD.PrintErr("[NarrativeEngine] 警告：未找到 LLMClient，创建默认实例（启用模拟模式）");
         		_llmClient = new LLMClient();
-        		_llmClient.Enabled = false;  // 默认禁用
+        		_llmClient.Enabled = true;  // 启用，但使用模拟模式（因为没有 API 密钥）
         		AddChild(_llmClient);
         	}
         }
@@ -326,6 +330,7 @@ namespace MasqueradeArk.Engine
         /// </summary>
         public void ProcessPlayerInteraction(Survivor npc, string playerInput, Action<NarrativeActionResponse> callback)
         {
+            GD.Print($"[NarrativeEngine] ProcessPlayerInteraction 开始: {npc.SurvivorName}, 输入: {playerInput}");
             // 检查是否为命令（以"/"开头）
             if (playerInput.StartsWith("/"))
             {
@@ -337,6 +342,7 @@ namespace MasqueradeArk.Engine
             // 调用LLM生成响应
             _llmClient.GenerateInteractionResponse(npc, playerInput, (jsonResponse) =>
             {
+                GD.Print($"[NarrativeEngine] 收到 LLM 响应: {jsonResponse}");
                 try
                 {
                     // 解析JSON
@@ -349,6 +355,7 @@ namespace MasqueradeArk.Engine
                     // 应用数值变化
                     ApplyInteractionChanges(npc, response);
 
+                    GD.Print($"[NarrativeEngine] 交互处理完成: {response}");
                     callback(response);
                 }
                 catch (Exception ex)

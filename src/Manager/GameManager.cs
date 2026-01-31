@@ -298,6 +298,12 @@ namespace MasqueradeArk.Manager
 					UIManager.SignalName.TaskActionPressed,
 					new Callable(this, MethodName.OnTaskActionPressed)
 				);
+				
+				// 连接幸存者卡片点击信号
+				_uiManager.Connect(
+					UIManager.SignalName.SurvivorCardClicked,
+					new Callable(this, MethodName.OnSurvivorCardClicked)
+				);
 			}
 			catch (Exception ex)
 			{
@@ -890,6 +896,16 @@ namespace MasqueradeArk.Manager
 					_uiManager?.AppendLog("当前没有可用任务。");
 				}
 			}
+		}
+
+		/// <summary>
+		/// 处理幸存者卡片点击事件
+		/// </summary>
+		private void OnSurvivorCardClicked(Survivor survivor)
+		{
+			GD.Print($"[GameManager] 幸存者卡片被点击: {survivor.SurvivorName}");
+			// 显示交互对话框
+			_uiManager?.ShowInteractionDialog(survivor);
 		}
 	}
 }

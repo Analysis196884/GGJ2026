@@ -290,6 +290,7 @@ namespace MasqueradeArk.Engine
         /// </summary>
         public void GenerateInteractionResponse(Survivor npc, string playerInput, Action<string> callback)
         {
+            GD.Print($"[LLMClient] GenerateInteractionResponse: Enabled={Enabled}, ApiKey empty? {string.IsNullOrEmpty(ApiKey)}, Simulate={Simulate}");
             if (!Enabled)
             {
                 GD.Print($"[LLMClient] LLM 未启用，返回模拟JSON");

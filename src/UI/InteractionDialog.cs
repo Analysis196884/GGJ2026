@@ -2,6 +2,7 @@ using Godot;
 using System;
 using MasqueradeArk.Core;
 using MasqueradeArk.Engine;
+using MasqueradeArk.Manager;
 
 namespace MasqueradeArk.UI
 {
@@ -15,7 +16,7 @@ namespace MasqueradeArk.UI
         public Label NPCLabel { get; set; }
 
         [Export]
-        public TextEdit PlayerInput { get; set; }
+        public LineEdit PlayerInput { get; set; }
 
         [Export]
         public Button SendButton { get; set; }
@@ -30,20 +31,115 @@ namespace MasqueradeArk.UI
 
             // 获取节点引用
             if (NPCLabel == null) NPCLabel = GetNode<Label>("NPCLabel");
-            if (PlayerInput == null) PlayerInput = GetNode<TextEdit>("PlayerInput");
+            if (PlayerInput == null) PlayerInput = GetNode<LineEdit>("PlayerInput");
             if (SendButton == null) SendButton = GetNode<Button>("SendButton");
+
+            // 如果节点不存在，创建默认 UI
+            if (NPCLabel == null || PlayerInput == null || SendButton == null)
+            {
+                CreateDefaultUI();
+            }
 
             // 连接信号
             if (SendButton != null)
             {
                 SendButton.Pressed += OnSendPressed;
             }
+            if (PlayerInput != null)
+            {
+                PlayerInput.TextSubmitted += OnTextSubmitted;
+            }
 
             // 查找NarrativeEngine
             _narrativeEngine = GetNode<NarrativeEngine>("/root/GameManager/NarrativeEngine");
             if (_narrativeEngine == null)
             {
-                GD.PrintErr("[InteractionDialog] 未找到 NarrativeEngine");
+                GD.PrintErr("[InteractionDialog] 未找到 NarrativeEngine，尝试其他路径");
+                // 尝试从场景根节点查找
+                var root = GetTree().Root;
+                _narrativeEngine = root.GetNodeOrNull<NarrativeEngine>("GameManager/NarrativeEngine");
+                if (_narrativeEngine == null)
+                {
+                    GD.PrintErr("[InteractionDialog] 仍然未找到 NarrativeEngine");
+                }
+                else
+                {
+                    GD.Print("[InteractionDialog] 通过备用路径找到 NarrativeEngine");
+                }
+            }
+            else
+            {
+                GD.Print("[InteractionDialog] NarrativeEngine 已找到");
+            }
+        }
+
+        /// <summary>
+        /// 创建默认 UI 节点（当场景未提供时）
+        /// </summary>
+        private void CreateDefaultUI()
+        {
+            // 创建 Label
+            if (NPCLabel == null)
+            {
+                NPCLabel = new Label();
+                NPCLabel.Name = "NPCLabel";
+                NPCLabel.Text = "与 NPC 对话";
+                NPCLabel.AddThemeFontSizeOverride("font_size", 16);
+                AddChild(NPCLabel);
+            }
+
+            // 创建 TextEdit
+            if (PlayerInput == null)
+            {
+                PlayerInput = new LineEdit();
+                PlayerInput.Name = "PlayerInput";
+                PlayerInput.PlaceholderText = "输入你想说的话...";
+                PlayerInput.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+                AddChild(PlayerInput);
+            }
+
+            // 创建 Button
+            if (SendButton == null)
+            {
+                SendButton = new Button();
+                SendButton.Name = "SendButton";
+                SendButton.Text = "发送";
+                SendButton.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
+                AddChild(SendButton);
+            }
+        }
+
+        /// <summary>
+        /// 尝试查找 NarrativeEngine（如果尚未找到）
+        /// </summary>
+        private void TryFindNarrativeEngine()
+        {
+            if (_narrativeEngine != null) return;
+            
+            GD.Print("[InteractionDialog] 尝试查找 NarrativeEngine...");
+            // 首先通过组查找（避免路径错误）
+            var nodes = GetTree().GetNodesInGroup("NarrativeEngine");
+            if (nodes.Count > 0 && nodes[0] is NarrativeEngine ne)
+            {
+                _narrativeEngine = ne;
+                GD.Print($"[InteractionDialog] 通过组找到 NarrativeEngine: {_narrativeEngine}");
+                return;
+            }
+            
+            // 组查找失败，尝试路径查找（可能会产生错误日志，但忽略）
+            var root = GetTree().Root;
+            _narrativeEngine = root.GetNodeOrNull<NarrativeEngine>("GameManager/NarrativeEngine");
+            if (_narrativeEngine == null)
+            {
+                _narrativeEngine = GetNode<NarrativeEngine>("/root/GameManager/NarrativeEngine");
+            }
+            if (_narrativeEngine == null)
+            {
+                GD.PrintErr("[InteractionDialog] 无法找到 NarrativeEngine");
+            }
+            else
+            {
+                GD.Print($"[InteractionDialog] 通过路径找到 NarrativeEngine: {_narrativeEngine}");
             }
         }
 
@@ -52,6 +148,9 @@ namespace MasqueradeArk.UI
         /// </summary>
         public void ShowDialog(Survivor npc)
         {
+            // 确保 NarrativeEngine 存在
+            TryFindNarrativeEngine();
+            
             _currentNPC = npc;
             if (NPCLabel != null)
             {
@@ -115,17 +214,21 @@ namespace MasqueradeArk.UI
 
         private void OnSendPressed()
         {
+            GD.Print("[InteractionDialog] OnSendPressed 被调用");
             if (_currentNPC == null || _narrativeEngine == null || PlayerInput == null || SendButton == null)
             {
+                GD.PrintErr($"[InteractionDialog] 条件不满足: _currentNPC={_currentNPC}, _narrativeEngine={_narrativeEngine}, PlayerInput={PlayerInput}, SendButton={SendButton}");
                 return;
             }
 
             string input = PlayerInput.Text.Trim();
             if (string.IsNullOrEmpty(input))
             {
+                GD.Print("[InteractionDialog] 输入为空");
                 return;
             }
 
+            GD.Print($"[InteractionDialog] 开始处理输入: {input}");
             // 开始处理
             _isProcessing = true;
             SendButton.Disabled = true;
@@ -134,6 +237,7 @@ namespace MasqueradeArk.UI
             // 调用交互处理
             _narrativeEngine.ProcessPlayerInteraction(_currentNPC, input, (response) =>
             {
+                GD.Print($"[InteractionDialog] 收到交互响应: {response}");
                 // 处理完成
                 _isProcessing = false;
                 SendButton.Disabled = false;
@@ -144,7 +248,19 @@ namespace MasqueradeArk.UI
 
                 // 清空输入
                 PlayerInput.Text = "";
+                
+                // 自动关闭对话框
+                HideDialog();
             });
+        }
+
+        /// <summary>
+        /// 处理文本提交（按 Enter 键）
+        /// </summary>
+        private void OnTextSubmitted(string text)
+        {
+            GD.Print("[InteractionDialog] OnTextSubmitted 被调用");
+            OnSendPressed();
         }
 
         /// <summary>
