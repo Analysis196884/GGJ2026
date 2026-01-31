@@ -1,33 +1,28 @@
-[gd_scene load_steps=3 format=3 uid="uid://main_masquerade_ark"]
+[gd_scene load_steps=4 format=3 uid="uid://cf32qigfkdh1m"]
 
-[ext_resource type="Script" path="res://src/Manager/GameManager.cs" id="GameManagerScript"]
-[ext_resource type="Script" path="res://src/UI/UIManager.cs" id="UIManagerScript"]
+[ext_resource type="Script" uid="uid://cb50ordngxvf7" path="res://src/Manager/GameManager.cs" id="GameManagerScript"]
+[ext_resource type="Script" uid="uid://471ho58ous56" path="res://src/UI/UIManager.cs" id="UIManagerScript"]
+
+[sub_resource type="Theme" id="Theme_rvslj"]
 
 [node name="Main" type="Node"]
 script = ExtResource("GameManagerScript")
 
 [node name="UIManager" type="Control" parent="."]
 layout_mode = 3
-anchors_left = 0.0
-anchors_top = 0.0
-anchors_right = 1.0
-anchors_bottom = 1.0
+anchors_preset = 0
 script = ExtResource("UIManagerScript")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="UIManager"]
 layout_mode = 1
-anchors_left = 0.0
-anchors_top = 0.0
-anchors_right = 1.0
-anchors_bottom = 1.0
 offset_left = 10.0
 offset_top = 10.0
 offset_right = -10.0
 offset_bottom = -10.0
 
 [node name="Sidebar" type="VBoxContainer" parent="UIManager/HBoxContainer"]
-layout_mode = 2
 custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
 
 [node name="StatusPanel" type="PanelContainer" parent="UIManager/HBoxContainer/Sidebar"]
 layout_mode = 2
@@ -37,8 +32,8 @@ layout_mode = 2
 
 [node name="DayLabel" type="Label" parent="UIManager/HBoxContainer/Sidebar/StatusPanel/StatusVBox"]
 layout_mode = 2
-text = "Day 1"
 theme_override_font_sizes/font_size = 28
+text = "Day 1"
 horizontal_alignment = 1
 
 [node name="HSeparator0" type="HSeparator" parent="UIManager/HBoxContainer/Sidebar/StatusPanel/StatusVBox"]
@@ -46,17 +41,17 @@ layout_mode = 2
 
 [node name="SuppliesLabel" type="Label" parent="UIManager/HBoxContainer/Sidebar/StatusPanel/StatusVBox"]
 layout_mode = 2
-text = "物资: 50"
 theme_override_font_sizes/font_size = 16
+text = "物资: 50"
 
 [node name="DefenseLabel" type="Label" parent="UIManager/HBoxContainer/Sidebar/StatusPanel/StatusVBox"]
 layout_mode = 2
-text = "防御: 50"
 theme_override_font_sizes/font_size = 16
+text = "防御: 50"
 
 [node name="VSeparator1" type="VSeparator" parent="UIManager/HBoxContainer/Sidebar"]
-layout_mode = 2
 custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
 
 [node name="SurvivorPanel" type="PanelContainer" parent="UIManager/HBoxContainer/Sidebar"]
 layout_mode = 2
@@ -67,8 +62,8 @@ layout_mode = 2
 
 [node name="SurvivorLabel" type="Label" parent="UIManager/HBoxContainer/Sidebar/SurvivorPanel/SurvivorVBox"]
 layout_mode = 2
-text = "幸存者状态"
 theme_override_font_sizes/font_size = 18
+text = "幸存者状态"
 horizontal_alignment = 1
 
 [node name="HSeparator1" type="HSeparator" parent="UIManager/HBoxContainer/Sidebar/SurvivorPanel/SurvivorVBox"]
@@ -84,8 +79,8 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="VSeparator2" type="VSeparator" parent="UIManager/HBoxContainer"]
-layout_mode = 2
 custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
 
 [node name="MainArea" type="VBoxContainer" parent="UIManager/HBoxContainer"]
 layout_mode = 2
@@ -101,23 +96,24 @@ layout_mode = 2
 
 [node name="EventLogTitle" type="Label" parent="UIManager/HBoxContainer/MainArea/EventLogPanel/EventLogVBox"]
 layout_mode = 2
-text = "事件日志"
+size_flags_vertical = 1
+theme = SubResource("Theme_rvslj")
 theme_override_font_sizes/font_size = 18
+text = "事件日志"
 horizontal_alignment = 1
 
 [node name="HSeparator2" type="HSeparator" parent="UIManager/HBoxContainer/MainArea/EventLogPanel/EventLogVBox"]
 layout_mode = 2
 
 [node name="EventLog" type="RichTextLabel" parent="UIManager/HBoxContainer/MainArea/EventLogPanel/EventLogVBox"]
-layout_mode = 2
 custom_minimum_size = Vector2(0, 400)
+layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
-scroll_active = true
 
 [node name="VSeparator3" type="VSeparator" parent="UIManager/HBoxContainer/MainArea"]
-layout_mode = 2
 custom_minimum_size = Vector2(0, 15)
+layout_mode = 2
 
 [node name="ActionPanel" type="PanelContainer" parent="UIManager/HBoxContainer/MainArea"]
 layout_mode = 2
@@ -127,8 +123,8 @@ layout_mode = 2
 
 [node name="ActionTitle" type="Label" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox"]
 layout_mode = 2
-text = "行动选择"
 theme_override_font_sizes/font_size = 16
+text = "行动选择"
 horizontal_alignment = 1
 
 [node name="HSeparator4" type="HSeparator" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox"]
@@ -143,32 +139,32 @@ layout_mode = 2
 [node name="NextDayButton" type="Button" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ButtonsHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "推进到下一天"
 theme_override_font_sizes/font_size = 14
+text = "推进到下一天"
 
 [node name="VSeparator4" type="VSeparator" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ButtonsHBox"]
-layout_mode = 2
 custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
 
 [node name="MeetingButton" type="Button" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ButtonsHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "召开会议"
 theme_override_font_sizes/font_size = 14
+text = "召开会议"
 
 [node name="VSeparator6" type="VSeparator" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ButtonsHBox"]
-layout_mode = 2
 custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
 
 [node name="AutoModeButton" type="Button" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ButtonsHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "自动模式"
 theme_override_font_sizes/font_size = 14
+text = "自动模式"
 
 [node name="VSeparator5" type="VSeparator" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea"]
-layout_mode = 2
 custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
 
 [node name="ActionButtonsHBox" type="HBoxContainer" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea"]
 layout_mode = 2
@@ -176,37 +172,37 @@ layout_mode = 2
 [node name="LocationActionButton" type="Button" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ActionButtonsHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "场所行动"
 theme_override_font_sizes/font_size = 14
+text = "场所行动"
 
 [node name="VSeparator7" type="VSeparator" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ActionButtonsHBox"]
-layout_mode = 2
 custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
 
 [node name="TaskManagementButton" type="Button" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ActionButtonsHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "任务管理"
 theme_override_font_sizes/font_size = 14
+text = "任务管理"
 
 [node name="VSeparator8" type="VSeparator" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ActionButtonsHBox"]
-layout_mode = 2
 custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
 
 [node name="ExportLogButton" type="Button" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea/ActionButtonsHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "导出日志"
 theme_override_font_sizes/font_size = 14
+text = "导出日志"
 
 [node name="VSeparator9" type="VSeparator" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea"]
-layout_mode = 2
 custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
 
 [node name="InputLabel" type="Label" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea"]
 layout_mode = 2
-text = "输入控制台命令："
 theme_override_font_sizes/font_size = 12
+text = "输入控制台命令："
 
 [node name="PlayerInput" type="LineEdit" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea"]
 layout_mode = 2

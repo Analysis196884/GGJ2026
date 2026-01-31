@@ -21,30 +21,25 @@ namespace MasqueradeArk.Utilities
                     filePath = $"user://game_log_{timestamp}.txt";
                 }
 
-                var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Write);
-                if (file == null)
-                {
-                    GD.PrintErr($"无法创建日志文件: {filePath}");
-                    return false;
-                }
-
-                // 写入文件头
-                var header = GenerateLogHeader(state);
-                file.StoreString(header);
-
-                // 写入事件日志
+                // 构建完整文本并使用 System.IO 写入，避免依赖可能不存在的 Godot API
+                var sb = new StringBuilder();
+                sb.Append(GenerateLogHeader(state));
                 var logs = state.GetEventLog();
                 foreach (var log in logs)
                 {
-                    file.StoreString(log + "\n");
+                    sb.AppendLine(log);
+                }
+                sb.Append(GenerateGameStatistics(state));
+
+                var actualPath = ProjectSettings.GlobalizePath(filePath);
+                var dir = System.IO.Path.GetDirectoryName(actualPath);
+                if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir))
+                {
+                    System.IO.Directory.CreateDirectory(dir);
                 }
 
-                // 写入游戏统计
-                var statistics = GenerateGameStatistics(state);
-                file.StoreString(statistics);
-
-                file.Close();
-                GD.Print($"事件日志已导出到: {filePath}");
+                System.IO.File.WriteAllText(actualPath, sb.ToString(), Encoding.UTF8);
+                GD.Print($"事件日志已导出到: {filePath} (实际路径: {actualPath})");
                 return true;
             }
             catch (Exception e)
@@ -92,17 +87,16 @@ namespace MasqueradeArk.Utilities
 
                 var jsonString = Json.Stringify(jsonData);
                 
-                var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Write);
-                if (file == null)
+                var actualPath = ProjectSettings.GlobalizePath(filePath);
+                var dir = System.IO.Path.GetDirectoryName(actualPath);
+                if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir))
                 {
-                    GD.PrintErr($"无法创建JSON文件: {filePath}");
-                    return false;
+                    System.IO.Directory.CreateDirectory(dir);
                 }
 
-                file.StoreString(jsonString);
-                file.Close();
-                
-                GD.Print($"事件日志(JSON)已导出到: {filePath}");
+                System.IO.File.WriteAllText(actualPath, jsonString, Encoding.UTF8);
+
+                GD.Print($"事件日志(JSON)已导出到: {filePath} (实际路径: {actualPath})");
                 return true;
             }
             catch (Exception e)
@@ -125,18 +119,16 @@ namespace MasqueradeArk.Utilities
                     filePath = $"user://game_summary_{timestamp}.md";
                 }
 
-                var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Write);
-                if (file == null)
+                var summary = GenerateMarkdownSummary(state);
+                var actualPath = ProjectSettings.GlobalizePath(filePath);
+                var dir = System.IO.Path.GetDirectoryName(actualPath);
+                if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir))
                 {
-                    GD.PrintErr($"无法创建摘要文件: {filePath}");
-                    return false;
+                    System.IO.Directory.CreateDirectory(dir);
                 }
 
-                var summary = GenerateMarkdownSummary(state);
-                file.StoreString(summary);
-                file.Close();
-                
-                GD.Print($"游戏摘要已导出到: {filePath}");
+                System.IO.File.WriteAllText(actualPath, summary, Encoding.UTF8);
+                GD.Print($"游戏摘要已导出到: {filePath} (实际路径: {actualPath})");
                 return true;
             }
             catch (Exception e)

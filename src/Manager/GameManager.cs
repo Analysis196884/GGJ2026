@@ -165,8 +165,6 @@ namespace MasqueradeArk.Manager
 				GD.PrintErr("[GameManager] UIManager 为 null，无法连接信号");
 				return;
 			}
-
-			GD.Print("[GameManager] 连接 UIManager 信号...");
 			
 			try
 			{
@@ -175,52 +173,42 @@ namespace MasqueradeArk.Manager
 					UIManager.SignalName.NextDayPressed,
 					new Callable(this, MethodName.OnNextDayPressed)
 				);
-				GD.Print("[GameManager] NextDayPressed 连接成功");
 				
 				_uiManager.Connect(
 					UIManager.SignalName.MeetingPressed,
 					new Callable(this, MethodName.OnMeetingPressed)
 				);
-				GD.Print("[GameManager] MeetingPressed 连接成功");
 				
 				_uiManager.Connect(
 					UIManager.SignalName.AutoModePressed,
 					new Callable(this, MethodName.OnAutoModePressed)
 				);
-				GD.Print("[GameManager] AutoModePressed 连接成功");
 				
 				_uiManager.Connect(
 					UIManager.SignalName.ChoiceSelected,
 					new Callable(this, MethodName.OnChoiceSelected)
 				);
-				GD.Print("[GameManager] ChoiceSelected 连接成功");
 				
 				_uiManager.Connect(
 					UIManager.SignalName.PlayerInputSubmitted,
 					new Callable(this, MethodName.OnPlayerInputSubmitted)
 				);
-				GD.Print("[GameManager] PlayerInputSubmitted 连接成功");
 				
 				// 连接新的信号
 				_uiManager.Connect(
 					UIManager.SignalName.ExportLogPressed,
 					new Callable(this, MethodName.OnExportLogPressed)
 				);
-				GD.Print("[GameManager] ExportLogPressed 连接成功");
 				
 				_uiManager.Connect(
 					UIManager.SignalName.LocationActionPressed,
 					new Callable(this, MethodName.OnLocationActionPressed)
 				);
-				GD.Print("[GameManager] LocationActionPressed 连接成功");
 				
 				_uiManager.Connect(
 					UIManager.SignalName.TaskActionPressed,
 					new Callable(this, MethodName.OnTaskActionPressed)
 				);
-				GD.Print("[GameManager] TaskActionPressed 连接成功");
-				
-				GD.Print("[GameManager] 所有信号连接完成");
 			}
 			catch (Exception ex)
 			{
@@ -406,7 +394,6 @@ namespace MasqueradeArk.Manager
 					
 					if (survivorChoices.Count > 0)
 					{
-						_uiManager.AppendLog($"=== 选择执行 {selectedAction} 的幸存者 ===");
 						_uiManager.ShowChoices(survivorChoices.ToArray());
 					}
 					else
@@ -429,7 +416,7 @@ namespace MasqueradeArk.Manager
 				if (choiceIndex < aliveSurvivors.Count)
 				{
 					var selectedSurvivor = aliveSurvivors[choiceIndex];
-					bool success = _locationManager.ExecuteLocationAction(_gameState, selectedSurvivor, _pendingLocationAction);
+					bool success = _locationManager.ExecuteLocationAction(ref _gameState, selectedSurvivor, _pendingLocationAction);
 					
 					if (success)
 					{
@@ -590,14 +577,14 @@ namespace MasqueradeArk.Manager
 						_uiManager.ShowActiveTasks(activeTasks);
 						
 						var availableTasks = _taskManager.GenerateAvailableTasks(_gameState);
-						if (availableTasks.Count > 0)
-						{
-							_uiManager.AppendLog("=== 可用任务 ===");
-							foreach (var task in availableTasks)
-							{
-								_uiManager.AppendLog($"• {task.Name}: {task.Description}");
-							}
-						}
+						// if (availableTasks.Count > 0)
+						// {
+						// 	_uiManager.AppendLog("=== 可用任务 ===");
+						// 	foreach (var task in availableTasks)
+						// 	{
+						// 		_uiManager.AppendLog($"• {task.Name}: {task.Description}");
+						// 	}
+						// }
 					}
 					break;
 
@@ -746,7 +733,7 @@ namespace MasqueradeArk.Manager
 			GD.Print($"[GameManager] LocationActionPressed: {locationName}, {actionType}");
 			if (_gameState != null && _locationManager != null)
 			{
-				_uiManager?.ShowLocationStatus(_gameState);
+				// _uiManager?.ShowLocationStatus(_gameState);
 				
 				var actions = _locationManager.GetAvailableLocationActions(_gameState);
 				if (actions.Count > 0)

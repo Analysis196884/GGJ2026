@@ -95,7 +95,7 @@ namespace MasqueradeArk.UI
 				if (_eventLog != null)
 				{
 					// 扩大事件日志窗口：设置最小尺寸并允许横/纵向扩展以占满可用空间
-					_eventLog.CustomMinimumSize = new Vector2(600, 400);
+					_eventLog.CustomMinimumSize = new Vector2(800, 400);
 					_eventLog.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 					_eventLog.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
 				}
@@ -132,43 +132,36 @@ namespace MasqueradeArk.UI
 			if (_nextDayButton != null)
 			{
 				_nextDayButton.Pressed += OnNextDayPressed;
-				GD.Print("[UIManager] NextDayButton 连接成功");
 			}
 
 			if (_meetingButton != null)
 			{
 				_meetingButton.Pressed += OnMeetingPressed;
-				GD.Print("[UIManager] MeetingButton 连接成功");
 			}
 
 			if (_autoModeButton != null)
 			{
 				_autoModeButton.Pressed += OnAutoModePressed;
-				GD.Print("[UIManager] AutoModeButton 连接成功");
 			}
 
 			if (_locationActionButton != null)
 			{
 				_locationActionButton.Pressed += OnLocationActionPressed;
-				GD.Print("[UIManager] LocationActionButton 连接成功");
 			}
 
 			if (_taskManagementButton != null)
 			{
 				_taskManagementButton.Pressed += OnTaskManagementPressed;
-				GD.Print("[UIManager] TaskManagementButton 连接成功");
 			}
 
 			if (_exportLogButton != null)
 			{
 				_exportLogButton.Pressed += OnExportLogPressed;
-				GD.Print("[UIManager] ExportLogButton 连接成功");
 			}
 
 			if (_playerInput != null)
 			{
 				_playerInput.TextSubmitted += OnPlayerInputSubmitted;
-				GD.Print("[UIManager] PlayerInput 连接成功");
 			}
 		}
 
@@ -206,7 +199,6 @@ namespace MasqueradeArk.UI
 				return;
 			}
 			
-			AppendLog("=== 可用场所行动 ===");
 			ShowChoices(actions);
 		}
 		
@@ -246,7 +238,7 @@ namespace MasqueradeArk.UI
 				taskChoices.Add($"选择任务: {task.Name}");
 			}
 			
-			AppendLog(taskInfo);
+			// AppendLog(taskInfo);
 			ShowChoices(taskChoices.ToArray());
 		}
 		
@@ -266,7 +258,6 @@ namespace MasqueradeArk.UI
 			
 			if (choices.Count > 0)
 			{
-				AppendLog($"=== 选择执行 {taskName} 的幸存者 ===");
 				ShowChoices(choices.ToArray());
 			}
 			else
@@ -422,7 +413,6 @@ namespace MasqueradeArk.UI
 		/// </summary>
 		public void ShowChoices(string[] choices)
 		{
-			GD.Print($"[UIManager] ShowChoices called, choices length: {(choices==null?0:choices.Length)} _choicesContainer is {(_choicesContainer==null?"null":"not null")}");
 			if (_choicesContainer == null)
 				return;
 
@@ -449,7 +439,6 @@ namespace MasqueradeArk.UI
 				var button = new Button { Text = choices[i] };
 				button.Pressed += () => OnChoiceSelected(choiceIndex);
 				_choicesContainer.CallDeferred("add_child", button);
-				GD.Print($"[UIManager] Added choice button {i}: {choices[i]}");
 			}
 		}
 

@@ -20,7 +20,7 @@ namespace MasqueradeArk.Manager
         /// <summary>
         /// 使用场所
         /// </summary>
-        public bool UseLocation(GameState state, Survivor survivor, Location.LocationType locationType)
+        public bool UseLocation(ref GameState state, Survivor survivor, Location.LocationType locationType)
         {
             var location = state.GetLocation(locationType);
             if (location == null || !location.CanUse())
@@ -31,11 +31,11 @@ namespace MasqueradeArk.Manager
             switch (locationType)
             {
                 case Location.LocationType.MedicalWard:
-                    return UseMedicalWard(state, survivor, location);
+                    return UseMedicalWard(ref state, survivor, location);
                 case Location.LocationType.RecreationRoom:
-                    return UseRecreationRoom(state, survivor, location);
+                    return UseRecreationRoom(ref state, survivor, location);
                 case Location.LocationType.RestArea:
-                    return UseRestArea(state, survivor, location);
+                    return UseRestArea(ref state, survivor, location);
                 case Location.LocationType.StorageRoom:
                     return CheckStorageRoom(state, survivor, location);
                 default:
@@ -46,7 +46,7 @@ namespace MasqueradeArk.Manager
         /// <summary>
         /// 使用医疗区 - 治疗生命值
         /// </summary>
-        private bool UseMedicalWard(GameState state, Survivor survivor, Location location)
+        private bool UseMedicalWard(ref GameState state, Survivor survivor, Location location)
         {
             if (survivor.Hp >= GameConstants.MAX_ATTRIBUTE_VALUE)
             {
@@ -64,7 +64,7 @@ namespace MasqueradeArk.Manager
         /// <summary>
         /// 使用棋牌室 - 减少压力
         /// </summary>
-        private bool UseRecreationRoom(GameState state, Survivor survivor, Location location)
+        private bool UseRecreationRoom(ref GameState state, Survivor survivor, Location location)
         {
             if (survivor.Stress <= GameConstants.MIN_ATTRIBUTE_VALUE)
             {
@@ -82,7 +82,7 @@ namespace MasqueradeArk.Manager
         /// <summary>
         /// 使用休息区 - 增加与其他幸存者的信任度
         /// </summary>
-        private bool UseRestArea(GameState state, Survivor survivor, Location location)
+        private bool UseRestArea(ref GameState state, Survivor survivor, Location location)
         {
             bool hasInteraction = false;
             int trustIncrease = (int)(GameConstants.REST_AREA_TRUST_INCREASE * location.GetEfficiency());
@@ -203,18 +203,18 @@ namespace MasqueradeArk.Manager
         /// <summary>
         /// 执行场所行动
         /// </summary>
-        public bool ExecuteLocationAction(GameState state, Survivor survivor, string actionName)
+        public bool ExecuteLocationAction(ref GameState state, Survivor survivor, string actionName)
         {
             switch (actionName)
             {
                 case "使用医疗区":
-                    return UseLocation(state, survivor, Location.LocationType.MedicalWard);
+                    return UseLocation(ref state, survivor, Location.LocationType.MedicalWard);
                 case "使用棋牌室":
-                    return UseLocation(state, survivor, Location.LocationType.RecreationRoom);
+                    return UseLocation(ref state, survivor, Location.LocationType.RecreationRoom);
                 case "使用休息区":
-                    return UseLocation(state, survivor, Location.LocationType.RestArea);
+                    return UseLocation(ref state, survivor, Location.LocationType.RestArea);
                 case "查看储藏室":
-                    return UseLocation(state, survivor, Location.LocationType.StorageRoom);
+                    return UseLocation(ref state, survivor, Location.LocationType.StorageRoom);
                 default:
                     // 检查是否是修理行动
                     if (actionName.StartsWith("修理"))
