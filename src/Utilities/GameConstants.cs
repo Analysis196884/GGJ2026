@@ -83,7 +83,7 @@ namespace MasqueradeArk.Utilities
         
         // ===== 随机事件概率 =====
         public const float RANDOM_EVENT_CHANCE = 0.3f;
-        public const float STRESS_EVENT_CHANCE = 0.4f;
+        public const float STRESS_EVENT_CHANCE = .4f;
         public const float SUPPLY_EVENT_CHANCE = 0.3f;
         public const float ZOMBIE_EVENT_CHANCE = 0.2f;
         public const float THEFT_EVENT_CHANCE = 0.15f;

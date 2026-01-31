@@ -218,7 +218,7 @@ namespace MasqueradeArk.Manager
             
             if (roll > acceptChance)
             {
-                LogCallback?.Invoke($"{survivor.SurvivorName} 拒绝执行 {actionName}（信任值：{survivor.Trust}%）");
+                LogCallback?.Invoke($"{survivor.SurvivorName} 拒绝执行 {actionName}");
                 return false;
             }
             

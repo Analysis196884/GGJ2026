@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Text;
 using System.Text.Json;
-using System.Net.Http;
 using MasqueradeArk.Core;
 
 namespace MasqueradeArk.Engine
@@ -29,10 +28,12 @@ namespace MasqueradeArk.Engine
         public string Model { get; set; } = "deepseek-chat";
 
         [Export]
-        public bool Simulate { get; set; } = true;
+        public bool Simulate { get; set; } = false;
 
         private RandomNumberGenerator _rng = new();
         private HttpRequest _httpRequest;
+        private bool _isRequesting = false;
+        private Queue<(string eventType, string eventDescription, GameState state, Action<string> callback)> _requestQueue = new();
 
         public LLMClient()
         {
@@ -46,87 +47,17 @@ namespace MasqueradeArk.Engine
             AddChild(_httpRequest);
         }
 
-        /// <summary>
-        /// 调用真实的 DeepSeek API 生成文本
-        /// </summary>
-        private async Task<string> CallDeepSeekApi(string prompt)
+        private void CallDeepSeekApi(string eventType, string eventDescription, GameState state, Action<string> callback)
         {
-            using (var httpClient = new System.Net.Http.HttpClient())
+            GD.Print("[LLMClient] Starting API call");
+            if (string.IsNullOrEmpty(ApiEndpoint))
             {
-                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ApiKey);
-                httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-
-                var requestBody = new
-                {
-                    model = Model,
-                    messages = new[]
-                    {
-                        new { role = "system", content = "你是一名《行尸走肉》风格的编剧。请根据提供的事件信息生成一段含蓄、压抑、现实的叙事文本，不超过100字。不要直接揭露真相，只提供线索和氛围描写。" },
-                        new { role = "user", content = prompt }
-                    },
-                    max_tokens = 200,
-                    temperature = 0.7
-                };
-
-                string jsonBody = JsonSerializer.Serialize(requestBody);
-                var content = new System.Net.Http.StringContent(jsonBody, System.Text.Encoding.UTF8, "application/json");
-
-                try
-                {
-                    var response = await httpClient.PostAsync(ApiEndpoint, content);
-                    if (response.IsSuccessStatusCode)
-                    {
-                        string responseBody = await response.Content.ReadAsStringAsync();
-                        using JsonDocument doc = JsonDocument.Parse(responseBody);
-                        var root = doc.RootElement;
-                        if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
-                        {
-                            var firstChoice = choices[0];
-                            if (firstChoice.TryGetProperty("message", out var message) &&
-                                message.TryGetProperty("content", out var contentProp))
-                            {
-                                return contentProp.GetString()?.Trim() ?? "";
-                            }
-                        }
-                    }
-                    else
-                    {
-                        GD.PrintErr($"[LLMClient] API 返回错误代码：{(int)response.StatusCode}");
-                        GD.PrintErr($"响应体：{await response.Content.ReadAsStringAsync()}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    GD.PrintErr($"[LLMClient] 请求失败：{ex.Message}");
-                }
+                callback(GenerateSimulatedNarrative(eventType, eventDescription, state));
+                return;
             }
 
-            return "";
-        }
-
-        /// <summary>
-        /// 生成事件叙事文本（异步）
-        /// </summary>
-        public async Task<string> GenerateEventNarrativeAsync(string eventType, string eventDescription, GameState state)
-        {
-            if (!Enabled)
-            {
-                GD.Print($"[LLMClient] LLM 未启用，返回空字符串");
-                return "";
-            }
-
-            if (Simulate || string.IsNullOrEmpty(ApiKey))
-            {
-                GD.Print($"[LLMClient] 模拟模式，为事件 {eventType} 生成模板文本");
-                return GenerateSimulatedNarrative(eventType, eventDescription, state);
-            }
-
-            // 真实 API 调用
-            GD.Print($"[LLMClient] 调用真实 API 为事件 {eventType} 生成叙事文本");
-            try
-            {
-                // 构建提示
-                string prompt = $"""
+            // 构建提示
+            string prompt = $"""
 事件类型：{eventType}
 事件描述：{eventDescription}
 当前游戏状态：
@@ -137,21 +68,133 @@ namespace MasqueradeArk.Engine
 
 请根据以上信息生成一段含蓄、压抑、现实的叙事文本，不超过100字。不要直接揭露真相，只提供线索和氛围描写。
 """;
-                var result = await CallDeepSeekApi(prompt);
-                if (!string.IsNullOrEmpty(result))
+
+            var requestBody = new
+            {
+                model = Model,
+                messages = new[]
                 {
-                    return result;
+                    new { role = "system", content = "你是一名《行尸走肉》风格的编剧。请根据提供的事件信息生成一段含蓄、压抑、现实的叙事文本，不超过100字。不要直接揭露真相，只提供线索和氛围描写。" },
+                    new { role = "user", content = prompt }
+                },
+                max_tokens = 200,
+                temperature = 0.7
+            };
+
+            string jsonBody = JsonSerializer.Serialize(requestBody);
+            var headers = new string[]
+            {
+                "Authorization: Bearer " + ApiKey,
+                "Content-Type: application/json"
+            };
+
+            void OnRequestCompleted(long result, long responseCode, string[] headers, byte[] body)
+            {
+                GD.Print($"[LLMClient] Request completed, result: {result}, responseCode: {responseCode}");
+                _httpRequest.RequestCompleted -= OnRequestCompleted;
+
+                if (result != (long)HttpRequest.Result.Success)
+                {
+                    GD.Print("[LLMClient] Request failed, using simulated text");
+                    callback(GenerateSimulatedNarrative(eventType, eventDescription, state));
+                    return;
                 }
-                else
+
+                if (responseCode != 200)
                 {
-                    GD.PrintErr("[LLMClient] API 返回空结果，使用模拟文本");
-                    return GenerateSimulatedNarrative(eventType, eventDescription, state);
+                    GD.PrintErr($"[LLM API Error] {responseCode}: {System.Text.Encoding.UTF8.GetString(body)}");
+                    callback(GenerateSimulatedNarrative(eventType, eventDescription, state));
+                    return;
+                }
+
+                try
+                {
+                    string responseBody = System.Text.Encoding.UTF8.GetString(body);
+                    GD.Print($"[LLMClient] Response body: {responseBody}");
+                    using JsonDocument doc = JsonDocument.Parse(responseBody);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                    {
+                        string content = choices[0].GetProperty("message").GetProperty("content").GetString()?.Trim() ?? "";
+                        GD.Print($"[LLMClient] Extracted content: {content}");
+                        callback(content);
+                    }
+                    else
+                    {
+                        GD.Print("[LLMClient] No choices, using simulated text");
+                        callback(GenerateSimulatedNarrative(eventType, eventDescription, state));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"[LLMClient] 解析响应异常: {ex.Message}");
+                    callback(GenerateSimulatedNarrative(eventType, eventDescription, state));
                 }
             }
-            catch (Exception ex)
+
+            _httpRequest.RequestCompleted += OnRequestCompleted;
+            Error error = _httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
+            GD.Print($"[LLMClient] Request sent, error: {error}");
+
+            if (error != Error.Ok)
             {
-                GD.PrintErr($"[LLMClient] API 调用异常：{ex.Message}");
-                return GenerateSimulatedNarrative(eventType, eventDescription, state);
+                GD.PrintErr($"[LLMClient] 请求失败: {error}");
+                callback(GenerateSimulatedNarrative(eventType, eventDescription, state));
+            }
+        }
+
+        /// <summary>
+        /// 生成事件叙事文本（回调版本，避免阻塞）
+        /// </summary>
+        public void GenerateEventNarrative(string eventType, string eventDescription, GameState state, Action<string> callback)
+        {
+            if (!Enabled)
+            {
+                GD.Print($"[LLMClient] LLM 未启用，返回空字符串");
+                callback("");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(ApiKey))
+            {
+                GD.Print($"[LLMClient] 模拟模式，为事件 {eventType} 生成模板文本");
+                callback(GenerateSimulatedNarrative(eventType, eventDescription, state));
+                return;
+            }
+
+            // 真实 API 调用
+            GD.Print($"[LLMClient] 调用真实 API 为事件 {eventType} 生成叙事文本");
+            if (_isRequesting)
+            {
+                _requestQueue.Enqueue((eventType, eventDescription, state, callback));
+            }
+            else
+            {
+                _isRequesting = true;
+                CallDeepSeekApi(eventType, eventDescription, state, (result) =>
+                {
+                    callback(result);
+                    _isRequesting = false;
+                    ProcessNextRequest();
+                });
+            }
+        }
+
+        /// <summary>
+        /// 处理队列中的下一个请求
+        /// </summary>
+        private void ProcessNextRequest()
+        {
+            if (_requestQueue.Count > 0)
+            {
+                var (eventType, eventDescription, state, callback) = _requestQueue.Dequeue();
+                _isRequesting = true;
+                CallDeepSeekApi(eventType, eventDescription, state, (result) =>
+                {
+                    callback(result);
+                    _isRequesting = false;
+                    ProcessNextRequest();
+                });
             }
         }
 
@@ -204,14 +247,17 @@ namespace MasqueradeArk.Engine
         }
 
         /// <summary>
-        /// 生成日间摘要文本（异步）
+        /// 生成日间摘要文本（回调版本）
         /// </summary>
-        public async Task<string> GenerateDaySummaryAsync(GameState state)
+        public void GenerateDaySummary(GameState state, Action<string> callback)
         {
             if (!Enabled)
-                return "";
+            {
+                callback("");
+                return;
+            }
 
-            if (Simulate || string.IsNullOrEmpty(ApiKey))
+            if (string.IsNullOrEmpty(ApiKey))
             {
                 var summaries = new[]
                 {
@@ -219,14 +265,18 @@ namespace MasqueradeArk.Engine
                     $"又活过了一天。{state.GetAliveSurvivorCount()} 个幸存者。{state.Supplies} 单位物资。",
                     $"日落时分。营地仍然站立。防御值：{state.Defense}。"
                 };
-                return summaries[_rng.Randi() % summaries.Length];
+                callback(summaries[_rng.Randi() % summaries.Length]);
+                return;
             }
 
             // 真实 API 调用
             GD.Print($"[LLMClient] 调用真实 API 生成日间摘要");
-            try
-            {
-                string prompt = $"""
+            CallDeepSeekApiForSummary(state, callback);
+        }
+
+        private void CallDeepSeekApiForSummary(GameState state, Action<string> callback)
+        {
+            string prompt = $"""
 当前游戏状态：
 - 天数：{state.Day}
 - 幸存者数量：{state.GetAliveSurvivorCount()}
@@ -235,21 +285,72 @@ namespace MasqueradeArk.Engine
 
 请生成一段简短的日间摘要，描述营地当天的情况，不超过80字。语气压抑、现实。
 """;
-                var result = await CallDeepSeekApi(prompt);
-                if (!string.IsNullOrEmpty(result))
+
+            var requestBody = new
+            {
+                model = Model,
+                messages = new[]
                 {
-                    return result;
+                    new { role = "system", content = "你是一名《行尸走肉》风格的编剧。请根据提供的事件信息生成一段含蓄、压抑、现实的叙事文本，不超过100字。不要直接揭露真相，只提供线索和氛围描写。" },
+                    new { role = "user", content = prompt }
+                },
+                max_tokens = 200,
+                temperature = 0.7
+            };
+
+            string jsonBody = JsonSerializer.Serialize(requestBody);
+            var headers = new string[]
+            {
+                "Authorization: Bearer " + ApiKey,
+                "Content-Type: application/json"
+            };
+
+            void OnRequestCompleted(long result, long responseCode, string[] headers, byte[] body)
+            {
+                _httpRequest.RequestCompleted -= OnRequestCompleted;
+
+                if (result != (long)HttpRequest.Result.Success)
+                {
+                    callback($"第 {state.Day} 天。幸存者 {state.GetAliveSurvivorCount()} 人，物资 {state.Supplies} 单位。");
+                    return;
                 }
-                else
+
+                if (responseCode != 200)
                 {
-                    GD.PrintErr("[LLMClient] API 返回空结果，使用模拟文本");
-                    return $"第 {state.Day} 天。幸存者 {state.GetAliveSurvivorCount()} 人，物资 {state.Supplies} 单位。";
+                    GD.PrintErr($"[LLM API Error] {responseCode}: {System.Text.Encoding.UTF8.GetString(body)}");
+                    callback($"第 {state.Day} 天。幸存者 {state.GetAliveSurvivorCount()} 人，物资 {state.Supplies} 单位。");
+                    return;
+                }
+
+                try
+                {
+                    string responseBody = System.Text.Encoding.UTF8.GetString(body);
+                    using JsonDocument doc = JsonDocument.Parse(responseBody);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                    {
+                        string content = choices[0].GetProperty("message").GetProperty("content").GetString()?.Trim() ?? "";
+                        callback(content);
+                    }
+                    else
+                    {
+                        callback($"第 {state.Day} 天。幸存者 {state.GetAliveSurvivorCount()} 人，物资 {state.Supplies} 单位。");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"[LLMClient] 解析响应异常: {ex.Message}");
+                    callback($"第 {state.Day} 天。幸存者 {state.GetAliveSurvivorCount()} 人，物资 {state.Supplies} 单位。");
                 }
             }
-            catch (Exception ex)
+
+            _httpRequest.RequestCompleted += OnRequestCompleted;
+            Error error = _httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
+
+            if (error != Error.Ok)
             {
-                GD.PrintErr($"[LLMClient] API 调用异常：{ex.Message}");
-                return $"第 {state.Day} 天。幸存者 {state.GetAliveSurvivorCount()} 人，物资 {state.Supplies} 单位。";
+                GD.PrintErr($"[LLMClient] 请求失败: {error}");
+                callback($"第 {state.Day} 天。幸存者 {state.GetAliveSurvivorCount()} 人，物资 {state.Supplies} 单位。");
             }
         }
     }

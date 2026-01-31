@@ -71,19 +71,16 @@ namespace MasqueradeArk.Manager
             var tasks = new List<Task>();
 
             // 巡逻任务
-            if (state.Defense < GameConstants.INITIAL_DEFENSE)
+            tasks.Add(new Task
             {
-                tasks.Add(new Task
-                {
-                    Id = "patrol_" + state.Day,
-                    Name = "庇护所巡逻",
-                    Description = "派遣幸存者巡逻庇护所周围，提高防御值",
-                    Type = TaskType.Patrol,
-                    Duration = 1,
-                    // Requirements = new Dictionary<string, object> { { "minStamina", 50 } },
-                    Rewards = new Dictionary<string, object> { { "defenseBonus", GameConstants.PATROL_DEFENSE_BONUS } }
-                });
-            }
+                Id = "patrol_" + state.Day,
+                Name = "庇护所巡逻",
+                Description = "派遣幸存者巡逻庇护所周围，提高防御值",
+                Type = TaskType.Patrol,
+                Duration = 1,
+                // Requirements = new Dictionary<string, object> { { "minStamina", 50 } },
+                Rewards = new Dictionary<string, object> { { "defenseBonus", GameConstants.PATROL_DEFENSE_BONUS } }
+            });
 
             // 修理任务
             foreach (var location in state.Locations)
@@ -104,19 +101,16 @@ namespace MasqueradeArk.Manager
             }
 
             // 搜寻物资任务
-            if (state.Supplies < 20)
+            tasks.Add(new Task
             {
-                tasks.Add(new Task
-                {
-                    Id = "scavenge_" + state.Day,
-                    Name = "搜寻物资",
-                    Description = "外出寻找食物和用品",
-                    Type = TaskType.ScavengeSupply,
-                    Duration = 1,
-                    // Requirements = new Dictionary<string, object> { { "minStamina", 60 } },
-                    Rewards = new Dictionary<string, object> { { "supplies", _rng.RandiRange(3, 8) } }
-                });
-            }
+                Id = "scavenge_" + state.Day,
+                Name = "搜寻物资",
+                Description = "外出寻找食物和用品",
+                Type = TaskType.ScavengeSupply,
+                Duration = 1,
+                // Requirements = new Dictionary<string, object> { { "minStamina", 60 } },
+                Rewards = new Dictionary<string, object> { { "supplies", _rng.RandiRange(3, 8) } }
+            });
 
             // 站岗任务
             tasks.Add(new Task
@@ -176,7 +170,7 @@ namespace MasqueradeArk.Manager
             
             if (roll > acceptChance)
             {
-                LogCallback?.Invoke($"{survivorName} 拒绝执行 {task.Name}（信任值：{survivor.Trust}%）");
+                LogCallback?.Invoke($"{survivorName} 拒绝执行 {task.Name}");
                 return false;
             }
 
@@ -321,7 +315,7 @@ namespace MasqueradeArk.Manager
             evt.AddInvolvedNpc(survivor.SurvivorName);
             events.Add(evt);
 
-            LogCallback?.Invoke(rewardText);
+            // LogCallback?.Invoke(rewardText);
         }
 
         /// <summary>

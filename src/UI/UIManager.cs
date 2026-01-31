@@ -115,8 +115,6 @@ namespace MasqueradeArk.UI
 				
 				_playerInput = actionArea.GetNode<LineEdit>("PlayerInput");
 				_choicesContainer = actionArea.GetNode<HBoxContainer>("ChoicesContainer");
-	
-				GD.Print("[UIManager] 所有节点引用获取成功");
 			}
 			catch (Exception ex)
 			{

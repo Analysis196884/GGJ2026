@@ -74,12 +74,15 @@ namespace MasqueradeArk.Manager
 
 			// 创建 LLM 客户端（默认启用但模拟模式）
 			_llmClient = new LLMClient();
+			_llmClient.Name = "LLMClient"; // 设置节点名称，便于 NarrativeEngine 查找
 			_llmClient.Enabled = true; // 启用 LLM
 			_llmClient.Simulate = true; // 默认使用模拟模式（避免真实 API 调用）
 			AddChild(_llmClient);
 
 			_narrativeEngine = new NarrativeEngine();
 			AddChild(_narrativeEngine);
+			// 显式设置 LLMClient 给 NarrativeEngine
+			_narrativeEngine.SetLLMClient(_llmClient);
 
 			// 初始化新的管理器
 			_locationManager = new LocationManager();
@@ -121,10 +124,7 @@ namespace MasqueradeArk.Manager
 			// 初始化背景音乐
 			InitializeBGM();
 			
-			_uiManager.AppendLog("欢迎来到 Masquerade Ark");
-			_uiManager.AppendLog(_narrativeEngine.GenerateDaySummary(_gameState));
-
-			GD.Print($"游戏初始化完成。初始幸存者数：{_gameState.GetSurvivorCount()}");
+			this.Log("欢迎来到 Masquerade Ark");
 		}
 
 		/// <summary>
@@ -162,8 +162,6 @@ namespace MasqueradeArk.Manager
 			{
 				_uiManager.AppendLog(log);
 			}
-			
-			GD.Print($"[GameManager] 已同步 {logs.Length} 条历史日志到 UI");
 		}
 		
 		/// <summary>
@@ -187,8 +185,17 @@ namespace MasqueradeArk.Manager
 				_locationManager.LogCallback = logAction;
 			if (_simulationEngine != null)
 				_simulationEngine.LogCallback = logAction;
-				
-			GD.Print("[GameManager] 日志回调已设置");
+		}
+
+		/// <summary>
+		/// 统一的日志方法
+		/// </summary>
+		public void Log(string message)
+		{
+			if (_gameState != null)
+				_gameState.AppendLog(message);
+			if (_uiManager != null)
+				_uiManager.AppendLog(message);
 		}
 
 		/// <summary>
@@ -201,8 +208,6 @@ namespace MasqueradeArk.Manager
 			_gameTimer.OneShot = false;
 			_gameTimer.Timeout += OnTimerTimeout;
 			AddChild(_gameTimer);
-			
-			GD.Print($"[GameManager] 时间机制初始化完成。每天持续 {_dayDuration} 秒");
 		}
 
 		/// <summary>
@@ -228,12 +233,12 @@ namespace MasqueradeArk.Manager
 				if (_isAutoMode)
 				{
 					_gameTimer.Start();
-					_uiManager?.AppendLog("已开启自动模式 - 每10秒推进一天");
+					this.Log("已开启自动模式 - 每10秒推进一天");
 				}
 				else
 				{
 					_gameTimer.Stop();
-					_uiManager?.AppendLog("已关闭自动模式 - 手动控制");
+					this.Log("已关闭自动模式 - 手动控制");
 				}
 			}
 			GD.Print($"[GameManager] 自动模式: {(_isAutoMode ? "开启" : "关闭")}");
@@ -319,8 +324,7 @@ namespace MasqueradeArk.Manager
 				var taskEvents = _taskManager.ProcessActiveTasks(_gameState);
 				foreach (var taskEvent in taskEvents)
 				{
-					_gameState.AppendLog(taskEvent.Description);
-					_uiManager.AppendLog(taskEvent.Description);
+					this.Log(taskEvent.Description);
 				}
 			}
 
@@ -333,28 +337,33 @@ namespace MasqueradeArk.Manager
 				GD.Print($"事件：{evt}");
 
 				// 将事件添加到日志
-				_gameState.AppendLog(evt.Description);
-				_uiManager.AppendLog(evt.Description);
+				this.Log(evt.Description);
 
 				// 生成叙事文本
-				var narrative = _narrativeEngine.GenerateEventNarrative(evt, _gameState);
-				_uiManager.AppendLog(narrative.NarrativeText);
-
-				// 如果有选择，显示给玩家
-				if (narrative.Choices.Length > 0)
+				_narrativeEngine.GenerateEventNarrative(evt, _gameState, (narrative) =>
 				{
-					_uiManager.ShowChoices(narrative.Choices);
-					_isProcessing = false; // 等待玩家选择
-					return;
-				}
+					if (!string.IsNullOrEmpty(narrative.NarrativeText) && narrative.NarrativeText != evt.Description)
+					{
+						this.Log(narrative.NarrativeText);
+					}
+
+					// 如果有选择，显示给玩家
+					if (narrative.Choices.Length > 0)
+					{
+						_uiManager.ShowChoices(narrative.Choices);
+						_isProcessing = false; // 等待玩家选择
+						return;
+					}
+
+					// 无选择，继续到Step 3
+					// Step 3: 生成日间摘要
+					var summary = _narrativeEngine.GenerateDaySummary(_gameState);
+					_uiManager.AppendLog(summary);
+
+					// Step 4: 更新 UI
+					_uiManager.UpdateUI(_gameState);
+				});
 			}
-
-			// Step 3: 生成日间摘要
-			var summary = _narrativeEngine.GenerateDaySummary(_gameState);
-			_uiManager.AppendLog(summary);
-
-			// Step 4: 更新 UI
-			_uiManager.UpdateUI(_gameState);
 			EmitSignal(SignalName.GameStateUpdated);
 
 			// Step 5: 检查游戏结束条件
@@ -373,9 +382,9 @@ namespace MasqueradeArk.Manager
 				return;
 
 			GD.Print("召开会议...");
-			_uiManager.AppendLog("\n[会议开始]");
-			_uiManager.AppendLog("团队聚集一起。气氛很紧张。");
-			_uiManager.AppendLog("每个人都有眼神接触，互相猜疑。");
+			this.Log("\n[会议开始]");
+			this.Log("团队聚集一起。气氛很紧张。");
+			this.Log("每个人都有眼神接触，互相猜疑。");
 
 			// 显示投票选项（需要自定义具体实现）
 			var choices = GetVotingChoices();
@@ -442,11 +451,11 @@ namespace MasqueradeArk.Manager
 					
 					if (success)
 					{
-						_uiManager.AppendLog($"任务 {_selectedTask.Name} 已分配给 {selectedSurvivor.SurvivorName}");
+						this.Log($"任务 {_selectedTask.Name} 已分配给 {selectedSurvivor.SurvivorName}");
 					}
 					else
 					{
-						_uiManager.AppendLog($"无法分配任务给 {selectedSurvivor.SurvivorName}");
+						this.Log($"无法分配任务给 {selectedSurvivor.SurvivorName}");
 					}
 				}
 				
@@ -483,7 +492,7 @@ namespace MasqueradeArk.Manager
 					}
 					else
 					{
-						_uiManager.AppendLog("没有可用的幸存者执行场所行动。");
+						this.Log("没有可用的幸存者执行场所行动。");
 						_currentUIMode = "";
 					}
 				}
@@ -505,11 +514,11 @@ namespace MasqueradeArk.Manager
 					
 					if (success)
 					{
-						_uiManager.AppendLog($"{selectedSurvivor.SurvivorName} 成功执行了 {_pendingLocationAction}");
+						this.Log($"{selectedSurvivor.SurvivorName} 成功执行了 {_pendingLocationAction}");
 					}
 					else
 					{
-						_uiManager.AppendLog($"{selectedSurvivor.SurvivorName} 无法执行 {_pendingLocationAction}");
+						this.Log($"{selectedSurvivor.SurvivorName} 无法执行 {_pendingLocationAction}");
 					}
 					
 					_uiManager.UpdateUI(_gameState);
@@ -573,8 +582,12 @@ namespace MasqueradeArk.Manager
 			GD.Print($"玩家输入：{input}");
 			_uiManager.AppendLog($"> {input}");
 
-			// 可以在这里添加调试命令处理
-			ProcessCommand(input);
+			// 只有以"/"开头的文本会被识别为命令
+			if (input.StartsWith("/"))
+			{
+				string command = input.Substring(1); // 去掉"/"
+				ProcessCommand(command);
+			}
 		}
 
 		/// <summary>
@@ -724,13 +737,17 @@ namespace MasqueradeArk.Manager
 						
 						foreach (var evt in testEvents)
 						{
-							_gameState.AppendLog(evt.Description);
-							_uiManager.AppendLog(evt.Description);
-							var narrative = _narrativeEngine.GenerateEventNarrative(evt, _gameState);
-							_uiManager.AppendLog(narrative.NarrativeText);
+							this.Log(evt.Description);
+							_narrativeEngine.GenerateEventNarrative(evt, _gameState, (narrative) =>
+							{
+								if (!string.IsNullOrEmpty(narrative.NarrativeText) && narrative.NarrativeText != evt.Description)
+								{
+									this.Log(narrative.NarrativeText);
+								}
+							});
 						}
 						
-						_uiManager.AppendLog("已手动触发测试事件");
+						this.Log("已手动触发测试事件");
 					}
 					break;
 
@@ -857,8 +874,8 @@ namespace MasqueradeArk.Manager
 			if (_gameState != null && _taskManager != null)
 			{
 				// 显示当前进行中的任务
-				var activeTasks = _taskManager.GetActiveTasks();
-				_uiManager?.ShowActiveTasks(activeTasks);
+				// var activeTasks = _taskManager.GetActiveTasks();
+				// _uiManager?.ShowActiveTasks(activeTasks);
 				
 				// 显示可用任务
 				var availableTasks = _taskManager.GenerateAvailableTasks(_gameState);

@@ -27,23 +27,52 @@ namespace MasqueradeArk.Engine
             _rng.Randomize();
         }
 
+        /// <summary>
+        /// 设置 LLM 客户端（由 GameManager 调用）
+        /// </summary>
+        public void SetLLMClient(LLMClient client)
+        {
+            _llmClient = client;
+        }
+
         public override void _Ready()
         {
-            base._Ready();
-            // 尝试从场景树中获取 LLMClient，如果不存在则创建默认实例
-            _llmClient = GetNodeOrNull<LLMClient>("../LLMClient");
-            if (_llmClient == null)
-            {
-                _llmClient = new LLMClient();
-                AddChild(_llmClient);
-                GD.Print("[NarrativeEngine] 未找到 LLMClient，已创建默认实例");
-            }
+        	base._Ready();
+        	// 如果还没有设置 LLMClient，尝试从场景树查找
+        	if (_llmClient == null)
+        	{
+        		var parent = GetParent();
+        		if (parent != null)
+        		{
+        			// 通过类型查找 LLMClient（不依赖节点名称）
+        			foreach (var child in parent.GetChildren())
+        			{
+        				if (child is LLMClient llm)
+        				{
+        					_llmClient = llm;
+        					break;
+        				}
+        			}
+        			if (_llmClient == null)
+        			{
+        				GD.Print("[NarrativeEngine] 未找到 LLMClient 实例");
+        			}
+        		}
+        	}
+        	
+        	// 如果仍未找到，创建默认实例
+        	if (_llmClient == null)
+        	{
+        		_llmClient = new LLMClient();
+        		_llmClient.Enabled = false;  // 默认禁用
+        		AddChild(_llmClient);
+        	}
         }
 
         /// <summary>
-        /// 生成事件的叙事文本（异步）
+        /// 生成事件的叙事文本（回调版本）
         /// </summary>
-        public async Task<NarrativeResult> GenerateEventNarrativeAsync(GameEvent gameEvent, GameState state)
+        public void GenerateEventNarrative(GameEvent gameEvent, GameState state, Action<NarrativeResult> callback)
         {
             var result = new NarrativeResult
             {
@@ -51,27 +80,43 @@ namespace MasqueradeArk.Engine
                 Choices = []
             };
 
-            // 如果 LLM 客户端启用且未模拟，尝试使用 LLM 生成
-            if (_llmClient != null && _llmClient.Enabled && !_llmClient.Simulate)
+            // 如果 LLM 客户端启用，尝试使用 LLM 生成（包括模拟模式）
+            if (_llmClient != null && _llmClient.Enabled)
             {
                 try
                 {
-                    string llmText = await _llmClient.GenerateEventNarrativeAsync(gameEvent.Type.ToString(), gameEvent.Description, state);
-                    if (!string.IsNullOrEmpty(llmText))
+                    _llmClient.GenerateEventNarrative(gameEvent.Type.ToString(), gameEvent.Description, state, (llmText) =>
                     {
-                        result.NarrativeText = llmText;
-                        // 保留原有选择（可根据需要调整）
-                        SetChoicesByEventType(gameEvent.Type, ref result);
-                        return result;
-                    }
+                        if (!string.IsNullOrEmpty(llmText))
+                        {
+                            result.NarrativeText = llmText;
+                            // 保留原有选择（可根据需要调整）
+                            SetChoicesByEventType(gameEvent.Type, ref result);
+                            callback(result);
+                        }
+                        else
+                        {
+                            // 回退到模板
+                            GenerateFallbackNarrative(gameEvent, state, result, callback);
+                        }
+                    });
                 }
                 catch (Exception ex)
                 {
                     GD.PrintErr($"[NarrativeEngine] LLM 生成失败：{ex.Message}");
                     // 回退到模板
+                    GenerateFallbackNarrative(gameEvent, state, result, callback);
                 }
             }
+            else
+            {
+                GD.Print("[NarrativeEngine] LLM 客户端未启用或未找到，使用模板生成");
+                GenerateFallbackNarrative(gameEvent, state, result, callback);
+            }
+        }
 
+        private void GenerateFallbackNarrative(GameEvent gameEvent, GameState state, NarrativeResult result, Action<NarrativeResult> callback)
+        {
             // 使用模板生成
             switch (gameEvent.Type)
             {
@@ -111,7 +156,7 @@ namespace MasqueradeArk.Engine
                     break;
             }
 
-            return result;
+            callback(result);
         }
 
         /// <summary>
@@ -141,10 +186,17 @@ namespace MasqueradeArk.Engine
         /// </summary>
         public NarrativeResult GenerateEventNarrative(GameEvent gameEvent, GameState state)
         {
-            // 同步调用异步方法（可能阻塞，仅用于兼容）
-            var task = GenerateEventNarrativeAsync(gameEvent, state);
-            task.Wait();
-            return task.Result;
+            var tcs = new TaskCompletionSource<NarrativeResult>();
+            GenerateEventNarrative(gameEvent, state, (result) => tcs.SetResult(result));
+            // 等待结果，但设置超时以避免无限等待
+            var timeoutTask = Task.Delay(35000); // 35秒超时
+            var completedTask = Task.WhenAny(tcs.Task, timeoutTask).Result;
+            if (completedTask == timeoutTask)
+            {
+                GD.PrintErr("[NarrativeEngine] 生成叙事超时，使用默认文本");
+                return new NarrativeResult { NarrativeText = gameEvent.Description, Choices = [] };
+            }
+            return tcs.Task.Result;
         }
 
         private string GenerateSuppliesNarrative(GameEvent evt, GameState state)

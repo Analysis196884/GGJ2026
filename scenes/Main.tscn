@@ -1,5 +1,6 @@
-[gd_scene load_steps=4 format=3 uid="uid://cf32qigfkdh1m"]
+[gd_scene load_steps=5 format=3 uid="uid://cf32qigfkdh1m"]
 
+[ext_resource type="Script" uid="uid://df30xuis8ka01" path="res://src/Engine/NarrativeEngine.cs" id="3_0bbpv"]
 [ext_resource type="Script" uid="uid://cb50ordngxvf7" path="res://src/Manager/GameManager.cs" id="GameManagerScript"]
 [ext_resource type="Script" uid="uid://471ho58ous56" path="res://src/UI/UIManager.cs" id="UIManagerScript"]
 
@@ -213,3 +214,7 @@ layout_mode = 2
 
 [node name="ChoicesContainer" type="HBoxContainer" parent="UIManager/HBoxContainer/MainArea/ActionPanel/ActionVBox/ActionArea"]
 layout_mode = 2
+
+[node name="NarrativeEngine" type="Node" parent="UIManager/HBoxContainer"]
+script = ExtResource("3_0bbpv")
+metadata/_custom_type_script = "uid://df30xuis8ka01"
