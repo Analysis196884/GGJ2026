@@ -23,8 +23,8 @@ namespace MasqueradeArk.Utilities
         // ===== 感染机制 =====
         public const int INFECTION_DAILY_DAMAGE = 5;
         public const float INFECTION_DETECTION_CHANCE = 0.2f;
-        public const int MIN_SUSPICION_INCREASE = 5;
-        public const int MAX_SUSPICION_INCREASE = 20;
+        public const int MIN_TRUST_DECREASE = 5;
+        public const int MAX_TRUST_DECREASE = 20;
         
         // ===== 偷窃机制 =====
         public const float HUNGER_THEFT_MULTIPLIER = 0.5f;
@@ -39,7 +39,7 @@ namespace MasqueradeArk.Utilities
         public const int INITIAL_HUNGER = 0;
         public const int INITIAL_STRESS = 0;
         public const int INITIAL_INTEGRITY = 0;
-        public const int INITIAL_SUSPICION = 0;
+        public const int INITIAL_SURVIVOR_TRUST = 100;
         public const int INITIAL_TRUST = 50;
         
         // ===== 游戏胜利条件 =====

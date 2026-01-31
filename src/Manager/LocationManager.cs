@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 using MasqueradeArk.Core;
 using MasqueradeArk.Utilities;
@@ -8,6 +9,9 @@ namespace MasqueradeArk.Manager
     [GlobalClass]
     public partial class LocationManager : Node
     {
+        // 日志回调 - 用于同步日志到 UI
+        public Action<string>? LogCallback { get; set; }
+        
         // 场所行动类型
         public enum LocationAction
         {
@@ -50,14 +54,14 @@ namespace MasqueradeArk.Manager
         {
             if (survivor.Hp >= GameConstants.MAX_ATTRIBUTE_VALUE)
             {
-                state.AppendLog($"{survivor.SurvivorName} 不需要治疗。");
+                LogCallback?.Invoke($"{survivor.SurvivorName} 不需要治疗。");
                 return false;
             }
 
             int healAmount = (int)(GameConstants.MEDICAL_WARD_HEAL * location.GetEfficiency());
             survivor.Hp = Mathf.Min(GameConstants.MAX_ATTRIBUTE_VALUE, survivor.Hp + healAmount);
             
-            state.AppendLog($"{survivor.SurvivorName} 在医疗区接受治疗，恢复了 {healAmount} 点生命值。");
+            LogCallback?.Invoke($"{survivor.SurvivorName} 在医疗区接受治疗，恢复了 {healAmount} 点生命值。");
             return true;
         }
 
@@ -68,14 +72,14 @@ namespace MasqueradeArk.Manager
         {
             if (survivor.Stress <= GameConstants.MIN_ATTRIBUTE_VALUE)
             {
-                state.AppendLog($"{survivor.SurvivorName} 并不感到压力。");
+                LogCallback?.Invoke($"{survivor.SurvivorName} 并不感到压力。");
                 return false;
             }
 
             int stressReduction = (int)(GameConstants.RECREATION_STRESS_REDUCE * location.GetEfficiency());
             survivor.Stress = Mathf.Max(GameConstants.MIN_ATTRIBUTE_VALUE, survivor.Stress - stressReduction);
             
-            state.AppendLog($"{survivor.SurvivorName} 在棋牌室放松娱乐，减少了 {stressReduction} 点压力。");
+            LogCallback?.Invoke($"{survivor.SurvivorName} 在棋牌室放松娱乐，减少了 {stressReduction} 点压力。");
             return true;
         }
 
@@ -99,12 +103,12 @@ namespace MasqueradeArk.Manager
 
             if (hasInteraction)
             {
-                state.AppendLog($"{survivor.SurvivorName} 在休息区与其他幸存者社交，增加了 {trustIncrease} 点信任度。");
+                LogCallback?.Invoke($"{survivor.SurvivorName} 在休息区与其他幸存者社交，增加了 {trustIncrease} 点信任度。");
                 return true;
             }
             else
             {
-                state.AppendLog($"{survivor.SurvivorName} 在休息区休息，但没有其他人可以交流。");
+                LogCallback?.Invoke($"{survivor.SurvivorName} 在休息区休息，但没有其他人可以交流。");
                 return false;
             }
         }
@@ -116,11 +120,11 @@ namespace MasqueradeArk.Manager
         {
             if (!location.CanUse())
             {
-                state.AppendLog($"{survivor.SurvivorName} 无法进入储藏室，可能已经损坏。");
+                LogCallback?.Invoke($"{survivor.SurvivorName} 无法进入储藏室，可能已经损坏。");
                 return false;
             }
 
-            state.AppendLog($"{survivor.SurvivorName} 检查了储藏室，当前物资: {state.Supplies} 单位。");
+            LogCallback?.Invoke($"{survivor.SurvivorName} 检查了储藏室，当前物资: {state.Supplies} 单位。");
             return true;
         }
 
@@ -137,7 +141,7 @@ namespace MasqueradeArk.Manager
 
             if (location.DamageLevel == 0)
             {
-                state.AppendLog($"{location.Name} 状态良好，不需要修理。");
+                LogCallback?.Invoke($"{location.Name} 状态良好，不需要修理。");
                 return false;
             }
 
@@ -155,7 +159,7 @@ namespace MasqueradeArk.Manager
                 location.IsAvailable = true;
             }
 
-            state.AppendLog($"{survivor.SurvivorName} 修理了{location.Name}，修复了 {repairEfficiency} 点损坏。");
+            LogCallback?.Invoke($"{survivor.SurvivorName} 修理了{location.Name}，修复了 {repairEfficiency} 点损坏。");
             return true;
         }
 
@@ -205,6 +209,19 @@ namespace MasqueradeArk.Manager
         /// </summary>
         public bool ExecuteLocationAction(ref GameState state, Survivor survivor, string actionName)
         {
+            // 基于信任值决定是否接受玩家的场所行动决策
+            // 决策接受概率 = 信任值%
+            float acceptChance = Mathf.Clamp(survivor.Trust, 0, 100) / 100f;
+            var rng = new RandomNumberGenerator();
+            rng.Randomize();
+            float roll = rng.Randf();
+            
+            if (roll > acceptChance)
+            {
+                LogCallback?.Invoke($"{survivor.SurvivorName} 拒绝执行 {actionName}（信任值：{survivor.Trust}%）");
+                return false;
+            }
+            
             switch (actionName)
             {
                 case "使用医疗区":

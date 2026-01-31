@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using MasqueradeArk.Core;
 
 namespace MasqueradeArk.Engine
@@ -13,6 +14,7 @@ namespace MasqueradeArk.Engine
     public partial class NarrativeEngine : Node
     {
         private RandomNumberGenerator _rng = new();
+        private LLMClient _llmClient;
 
         public struct NarrativeResult
         {
@@ -25,10 +27,23 @@ namespace MasqueradeArk.Engine
             _rng.Randomize();
         }
 
+        public override void _Ready()
+        {
+            base._Ready();
+            // 尝试从场景树中获取 LLMClient，如果不存在则创建默认实例
+            _llmClient = GetNodeOrNull<LLMClient>("../LLMClient");
+            if (_llmClient == null)
+            {
+                _llmClient = new LLMClient();
+                AddChild(_llmClient);
+                GD.Print("[NarrativeEngine] 未找到 LLMClient，已创建默认实例");
+            }
+        }
+
         /// <summary>
-        /// 生成事件的叙事文本
+        /// 生成事件的叙事文本（异步）
         /// </summary>
-        public NarrativeResult GenerateEventNarrative(GameEvent gameEvent, GameState state)
+        public async Task<NarrativeResult> GenerateEventNarrativeAsync(GameEvent gameEvent, GameState state)
         {
             var result = new NarrativeResult
             {
@@ -36,6 +51,28 @@ namespace MasqueradeArk.Engine
                 Choices = []
             };
 
+            // 如果 LLM 客户端启用且未模拟，尝试使用 LLM 生成
+            if (_llmClient != null && _llmClient.Enabled && !_llmClient.Simulate)
+            {
+                try
+                {
+                    string llmText = await _llmClient.GenerateEventNarrativeAsync(gameEvent.Type.ToString(), gameEvent.Description, state);
+                    if (!string.IsNullOrEmpty(llmText))
+                    {
+                        result.NarrativeText = llmText;
+                        // 保留原有选择（可根据需要调整）
+                        SetChoicesByEventType(gameEvent.Type, ref result);
+                        return result;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"[NarrativeEngine] LLM 生成失败：{ex.Message}");
+                    // 回退到模板
+                }
+            }
+
+            // 使用模板生成
             switch (gameEvent.Type)
             {
                 case GameEvent.EventType.SuppliesConsumed:
@@ -75,6 +112,39 @@ namespace MasqueradeArk.Engine
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 根据事件类型设置选项（用于LLM生成时保留选项）
+        /// </summary>
+        private void SetChoicesByEventType(GameEvent.EventType eventType, ref NarrativeResult result)
+        {
+            switch (eventType)
+            {
+                case GameEvent.EventType.SuppliesStolen:
+                    result.Choices = new string[] { "继续调查", "保持警惕", "试图推理" };
+                    break;
+                case GameEvent.EventType.MentalBreakdown:
+                    result.Choices = new string[] { "安慰他们", "保持距离", "表示关切" };
+                    break;
+                case GameEvent.EventType.InfectionDetected:
+                    result.Choices = new string[] { "质问此人", "私下交谈", "装作未察觉" };
+                    break;
+                default:
+                    result.Choices = [];
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 生成事件的叙事文本（同步兼容版本）
+        /// </summary>
+        public NarrativeResult GenerateEventNarrative(GameEvent gameEvent, GameState state)
+        {
+            // 同步调用异步方法（可能阻塞，仅用于兼容）
+            var task = GenerateEventNarrativeAsync(gameEvent, state);
+            task.Wait();
+            return task.Result;
         }
 
         private string GenerateSuppliesNarrative(GameEvent evt, GameState state)

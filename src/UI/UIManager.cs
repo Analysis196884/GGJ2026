@@ -351,8 +351,8 @@ namespace MasqueradeArk.UI
 			// Stress 条
 			vbox.AddChild(CreateProgressBar("Stress", survivor.Stress, 100, Colors.Orange));
 
-			// Suspicion 条
-			vbox.AddChild(CreateProgressBar("Suspicion", survivor.Suspicion, 100, Colors.Yellow));
+			// Trust 条
+			vbox.AddChild(CreateProgressBar("Trust", survivor.Trust, 100, Colors.Green));
 
 			// Hunger 条
 			vbox.AddChild(CreateProgressBar("Hunger", survivor.Hunger, 100, Colors.Brown));
@@ -489,7 +489,6 @@ namespace MasqueradeArk.UI
 
 		private void OnChoiceSelected(int choiceIndex)
 		{
-			GD.Print($"[UIManager] 选择了选项 {choiceIndex}");
 			// 不立即隐藏选择按钮；由 GameManager 在处理完选择后调用 HideChoices()
 			EmitSignal(SignalName.ChoiceSelected, choiceIndex);
 		}

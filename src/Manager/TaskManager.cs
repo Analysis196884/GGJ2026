@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 using MasqueradeArk.Core;
 using MasqueradeArk.Utilities;
@@ -53,6 +54,9 @@ namespace MasqueradeArk.Manager
 
         private List<Task> _activeTasks = new List<Task>();
         private RandomNumberGenerator _rng = new RandomNumberGenerator();
+        
+        // 日志回调 - 用于同步日志到 UI
+        public Action<string>? LogCallback { get; set; }
 
         public override void _Ready()
         {
@@ -76,7 +80,7 @@ namespace MasqueradeArk.Manager
                     Description = "派遣幸存者巡逻庇护所周围，提高防御值",
                     Type = TaskType.Patrol,
                     Duration = 1,
-                    Requirements = new Dictionary<string, object> { { "minStamina", 50 } },
+                    // Requirements = new Dictionary<string, object> { { "minStamina", 50 } },
                     Rewards = new Dictionary<string, object> { { "defenseBonus", GameConstants.PATROL_DEFENSE_BONUS } }
                 });
             }
@@ -109,7 +113,7 @@ namespace MasqueradeArk.Manager
                     Description = "外出寻找食物和用品",
                     Type = TaskType.ScavengeSupply,
                     Duration = 1,
-                    Requirements = new Dictionary<string, object> { { "minStamina", 60 } },
+                    // Requirements = new Dictionary<string, object> { { "minStamina", 60 } },
                     Rewards = new Dictionary<string, object> { { "supplies", _rng.RandiRange(3, 8) } }
                 });
             }
@@ -147,7 +151,7 @@ namespace MasqueradeArk.Manager
         /// <summary>
         /// 分配任务给幸存者
         /// </summary>
-        public bool AssignTask(GameState state, string taskId, string survivorName)
+        public bool AssignTask(ref GameState state, string taskId, string survivorName)
         {
             var availableTasks = GenerateAvailableTasks(state);
             var task = availableTasks.Find(t => t.Id == taskId);
@@ -161,25 +165,26 @@ namespace MasqueradeArk.Manager
             // 检查任务需求
             if (!CheckTaskRequirements(task, survivor))
             {
-                state.AppendLog($"{survivorName} 不满足 {task.Name} 的要求。");
+                LogCallback?.Invoke($"{survivorName} 不满足 {task.Name} 的要求。");
                 return false;
             }
 
-            // 检查幸存者是否信任玩家（拒绝事件）
-            if (survivor.GetTrust(GameConstants.PLAYER_NAME) < 20)
+            // 基于信任值决定是否接受任务
+            // 决策接受概率 = 信任值%
+            float acceptChance = Mathf.Clamp(survivor.Trust, 0, 100) / 100f; // 信任值作为百分比
+            float roll = _rng.Randf();
+            
+            if (roll > acceptChance)
             {
-                if (_rng.Randf() < GameConstants.REFUSE_EVENT_CHANCE)
-                {
-                    state.AppendLog($"{survivorName} 拒绝执行 {task.Name}，因为不信任你的决策。");
-                    return false;
-                }
+                LogCallback?.Invoke($"{survivorName} 拒绝执行 {task.Name}（信任值：{survivor.Trust}%）");
+                return false;
             }
 
             task.AssignedSurvivor = survivorName;
             task.Status = TaskStatus.InProgress;
             _activeTasks.Add(task);
 
-            state.AppendLog($"{survivorName} 开始执行任务：{task.Name}");
+            LogCallback?.Invoke($"{survivorName} 接受并开始执行任务：{task.Name}");
             return true;
         }
 
@@ -316,7 +321,7 @@ namespace MasqueradeArk.Manager
             evt.AddInvolvedNpc(survivor.SurvivorName);
             events.Add(evt);
 
-            state.AppendLog(rewardText);
+            LogCallback?.Invoke(rewardText);
         }
 
         /// <summary>

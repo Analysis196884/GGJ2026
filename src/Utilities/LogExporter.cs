@@ -209,7 +209,7 @@ namespace MasqueradeArk.Utilities
                     ["stress"] = survivor.Stress,
                     ["stamina"] = survivor.Stamina,
                     ["integrity"] = survivor.Integrity,
-                    ["suspicion"] = survivor.Suspicion,
+                    ["trust"] = survivor.Trust,
                     ["isAlive"] = survivor.Hp > 0
                 };
                 survivorsArray.Add(survivorData);

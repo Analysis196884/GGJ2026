@@ -38,7 +38,7 @@ namespace MasqueradeArk.Core
         public int Integrity { get; set; } = 0; // -100 ~ 100
 
         [Export]
-        public int Suspicion { get; set; } = 0; // 0–100
+        public int Trust { get; set; } = 100; // 0–100 (100表示完全信任)
 
         /// <summary>秘密集合 (例如: "Infected", "Thief")</summary>
         [Export]
@@ -61,14 +61,20 @@ namespace MasqueradeArk.Core
             Stamina = 100;
             Stress = 0;
             Integrity = 0;
-            Suspicion = 0;
+            Trust = 100;
             Secrets = new string[] { };
         }
 
         /// <summary>获取与指定 NPC 的信任度</summary>
         public int GetTrust(string npcName)
         {
-            return _relationships.TryGetValue(npcName, out var trust) ? trust : 0;
+            // 如果有专门的关系记录，使用关系记录
+            if (_relationships.TryGetValue(npcName, out var trust))
+            {
+                return trust;
+            }
+            // 否则返回通用信任值
+            return Trust;
         }
 
         /// <summary>设置与指定 NPC 的信任度</summary>
@@ -116,7 +122,7 @@ namespace MasqueradeArk.Core
             Stamina = Mathf.Clamp(Stamina, 0, 100);
             Stress = Mathf.Clamp(Stress, 0, 100);
             Integrity = Mathf.Clamp(Integrity, -100, 100);
-            Suspicion = Mathf.Clamp(Suspicion, 0, 100);
+            Trust = Mathf.Clamp(Trust, 0, 100);
         }
 
         /// <summary>创建深拷贝</summary>
@@ -132,7 +138,7 @@ namespace MasqueradeArk.Core
                 Stamina = Stamina,
                 Stress = Stress,
                 Integrity = Integrity,
-                Suspicion = Suspicion,
+                Trust = Trust,
                 Secrets = (string[])Secrets.Clone()
             };
 

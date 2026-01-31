@@ -26,6 +26,7 @@ namespace MasqueradeArk.Manager
 		private LocationManager? _locationManager;
 		private TaskManager? _taskManager;
 		private LogExporter? _logExporter;
+		private LLMClient? _llmClient;
 
 		// 游戏状态
 		private bool _isGameOver = false;
@@ -41,6 +42,9 @@ namespace MasqueradeArk.Manager
 		private Timer? _gameTimer;
 		private bool _isAutoMode = false;
 		private float _dayDuration = 10.0f; // 10秒为一天
+
+		// 背景音乐
+		private AudioStreamPlayer? _bgmPlayer;
 
 		// 信号
 		[Signal]
@@ -67,6 +71,12 @@ namespace MasqueradeArk.Manager
 
 			_simulationEngine = new SimulationEngine();
 			AddChild(_simulationEngine);
+
+			// 创建 LLM 客户端（默认启用但模拟模式）
+			_llmClient = new LLMClient();
+			_llmClient.Enabled = true; // 启用 LLM
+			_llmClient.Simulate = true; // 默认使用模拟模式（避免真实 API 调用）
+			AddChild(_llmClient);
 
 			_narrativeEngine = new NarrativeEngine();
 			AddChild(_narrativeEngine);
@@ -95,16 +105,90 @@ namespace MasqueradeArk.Manager
 
 			// 连接 UI 信号
 			ConnectUISignals();
+			
+			// 设置日志回调 - 确保所有日志都同步到 UI
+			SetupLogCallbacks();
 
 			// 为幸存者分配随机秘密
 			_simulationEngine.AssignRandomSecretsToAll(_gameState);
 
 			// 初始化 UI
 			_uiManager.UpdateUI(_gameState);
+			
+			// 同步 GameState 的历史日志到 UI
+			SyncEventLogToUI();
+			
+			// 初始化背景音乐
+			InitializeBGM();
+			
 			_uiManager.AppendLog("欢迎来到 Masquerade Ark");
 			_uiManager.AppendLog(_narrativeEngine.GenerateDaySummary(_gameState));
 
 			GD.Print($"游戏初始化完成。初始幸存者数：{_gameState.GetSurvivorCount()}");
+		}
+
+		/// <summary>
+		/// 初始化背景音乐
+		/// </summary>
+		private void InitializeBGM()
+		{
+			_bgmPlayer = new AudioStreamPlayer();
+			AddChild(_bgmPlayer);
+			var bgmStream = GD.Load<AudioStream>("res://resources/Snow in the Walls (1.50x).mp3");
+			if (bgmStream != null)
+			{
+				_bgmPlayer.Stream = bgmStream;
+				_bgmPlayer.Autoplay = true;
+				_bgmPlayer.VolumeDb = -10; // 调整音量
+				_bgmPlayer.Play();
+				GD.Print("[GameManager] BGM 已加载并播放");
+			}
+			else
+			{
+				GD.PrintErr("[GameManager] 无法加载 BGM 音频文件");
+			}
+		}
+
+		/// <summary>
+		/// 同步 GameState 的事件日志到 UIManager
+		/// </summary>
+		private void SyncEventLogToUI()
+		{
+			if (_gameState == null || _uiManager == null)
+				return;
+			
+			var logs = _gameState.GetEventLog();
+			foreach (var log in logs)
+			{
+				_uiManager.AppendLog(log);
+			}
+			
+			GD.Print($"[GameManager] 已同步 {logs.Length} 条历史日志到 UI");
+		}
+		
+		/// <summary>
+		/// 设置各个管理器的日志回调
+		/// </summary>
+		private void SetupLogCallbacks()
+		{
+			// 统一的日志方法：同时更新 GameState 和 UIManager
+			Action<string> logAction = (message) =>
+			{
+				if (_gameState != null)
+					_gameState.AppendLog(message);
+				if (_uiManager != null)
+					_uiManager.AppendLog(message);
+			};
+			
+			// 设置所有管理器的日志回调
+			if (_taskManager != null)
+				_taskManager.LogCallback = logAction;
+			if (_locationManager != null)
+				_locationManager.LogCallback = logAction;
+			if (_simulationEngine != null)
+				_simulationEngine.LogCallback = logAction;
+				
+			GD.Print("[GameManager] 日志回调已设置");
 		}
 
 		/// <summary>
@@ -250,6 +334,7 @@ namespace MasqueradeArk.Manager
 
 				// 将事件添加到日志
 				_gameState.AppendLog(evt.Description);
+				_uiManager.AppendLog(evt.Description);
 
 				// 生成叙事文本
 				var narrative = _narrativeEngine.GenerateEventNarrative(evt, _gameState);
@@ -353,7 +438,7 @@ namespace MasqueradeArk.Manager
 				if (choiceIndex < aliveSurvivors.Count)
 				{
 					var selectedSurvivor = aliveSurvivors[choiceIndex];
-					bool success = _taskManager.AssignTask(_gameState, _selectedTask.Id, selectedSurvivor.SurvivorName);
+					bool success = _taskManager.AssignTask(ref _gameState, _selectedTask.Id, selectedSurvivor.SurvivorName);
 					
 					if (success)
 					{
@@ -515,6 +600,7 @@ namespace MasqueradeArk.Manager
 					_uiManager.AppendLog("  locations - 显示所有场所状态");
 					_uiManager.AppendLog("  tasks - 显示当前任务");
 					_uiManager.AppendLog("  stress <name> <amount> - 修改指定幸存者的压力值");
+					_uiManager.AppendLog("  trust <name> <amount> - 修改指定幸存者的信任值");
 					_uiManager.AppendLog("  supplies <amount> - 修改物资数量");
 					_uiManager.AppendLog("  trigger_event - 手动触发随机事件");
 					break;
@@ -592,11 +678,25 @@ namespace MasqueradeArk.Manager
 					if (parts.Length > 2)
 					{
 						var survivor = _gameState.GetSurvivor(parts[1]);
-						if (survivor != null && int.TryParse(parts[2], out int stressChange))
+						if (survivor != null && int.TryParse(parts[2], out int newstress))
 						{
-							survivor.Stress += stressChange;
+							survivor.Stress = newstress;
 							survivor.ClampValues();
-							_uiManager.AppendLog($"{survivor.SurvivorName} 的压力值修改了 {stressChange}，当前为 {survivor.Stress}");
+							_uiManager.AppendLog($"{survivor.SurvivorName} 的压力值改为了 {survivor.Stress}");
+							_uiManager.UpdateUI(_gameState);
+						}
+					}
+					break;
+
+				case "trust":
+					if (parts.Length > 2)
+					{
+						var survivor = _gameState.GetSurvivor(parts[1]);
+						if (survivor != null && int.TryParse(parts[2], out int newtrust))
+						{
+							survivor.Trust = newtrust;
+							survivor.ClampValues();
+							_uiManager.AppendLog($"{survivor.SurvivorName} 的信任值改为了 {survivor.Trust}");
 							_uiManager.UpdateUI(_gameState);
 						}
 					}
@@ -625,6 +725,7 @@ namespace MasqueradeArk.Manager
 						foreach (var evt in testEvents)
 						{
 							_gameState.AppendLog(evt.Description);
+							_uiManager.AppendLog(evt.Description);
 							var narrative = _narrativeEngine.GenerateEventNarrative(evt, _gameState);
 							_uiManager.AppendLog(narrative.NarrativeText);
 						}
@@ -715,7 +816,6 @@ namespace MasqueradeArk.Manager
 		/// </summary>
 		private void OnExportLogPressed()
 		{
-			GD.Print("[GameManager] ExportLogPressed 被按下");
 			if (_logExporter != null && _gameState != null)
 			{
 				_logExporter.ExportLogsToFile(_gameState);

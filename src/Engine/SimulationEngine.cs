@@ -13,6 +13,9 @@ namespace MasqueradeArk.Engine
     public partial class SimulationEngine : Node
     {
         private RandomNumberGenerator _rng = new();
+        
+        // 日志回调 - 用于同步日志到 UI
+        public Action<string>? LogCallback { get; set; }
 
         public SimulationEngine()
         {
@@ -110,10 +113,10 @@ namespace MasqueradeArk.Engine
                 // 检查是否被目击异常
                 if (_rng.Randf() < GameConstants.INFECTION_DETECTION_CHANCE)
                 {
-                    int suspicionIncrease = (int)(_rng.Randf() *
-                        (GameConstants.MAX_SUSPICION_INCREASE - GameConstants.MIN_SUSPICION_INCREASE)) +
-                        GameConstants.MIN_SUSPICION_INCREASE;
-                    survivor.Suspicion += suspicionIncrease;
+                    int trustDecrease = (int)(_rng.Randf() *
+                        (GameConstants.MAX_TRUST_DECREASE - GameConstants.MIN_TRUST_DECREASE)) +
+                        GameConstants.MIN_TRUST_DECREASE;
+                    survivor.Trust -= trustDecrease;
                     
                     var evt = new GameEvent(
                         GameEvent.EventType.InfectionDetected,
@@ -246,7 +249,7 @@ namespace MasqueradeArk.Engine
             if (survivor != null)
             {
                 survivor.Hp = 0;
-                state.AppendLog($"{survivorName} 被团队驱逐出去了...");
+                LogCallback?.Invoke($"{survivorName} 被团队驱逐出去了...");
             }
         }
 
@@ -277,8 +280,8 @@ namespace MasqueradeArk.Engine
                 case "integrity":
                     survivor.Integrity += delta;
                     break;
-                case "suspicion":
-                    survivor.Suspicion += delta;
+                case "trust":
+                    survivor.Trust += delta;
                     break;
                 case "stamina":
                     survivor.Stamina += delta;
@@ -331,10 +334,7 @@ namespace MasqueradeArk.Engine
             }
             
             // 拒绝事件（基于低信任度）
-            if (_rng.Randf() < GameConstants.REFUSE_EVENT_CHANCE)
-            {
-                TriggerRefuseEvent(state, events);
-            }
+            TriggerRefuseEvent(state, events);
         }
 
         /// <summary>
@@ -539,7 +539,7 @@ namespace MasqueradeArk.Engine
                 var evt = new GameEvent(
                     GameEvent.EventType.SuppliesStolen,
                     state.Day,
-                    $"发现物资被偷！{hungriestSurvivor.SurvivorName} 看起来很满足..."
+                    $"发现物资被偷！"
                 );
                 evt.AddInvolvedNpc(hungriestSurvivor.SurvivorName);
                 events.Add(evt);
@@ -581,7 +581,7 @@ namespace MasqueradeArk.Engine
         }
 
         /// <summary>
-        /// 触发拒绝事件
+        /// 触发拒绝事件 - 基于信任值
         /// </summary>
         private void TriggerRefuseEvent(GameState state, List<GameEvent> events)
         {
@@ -593,7 +593,7 @@ namespace MasqueradeArk.Engine
                 "拒绝参加会议"
             };
             
-            // 寻找信任度最低的幸存者
+            // 寻找对玩家信任度最低的幸存者
             Survivor lowTrustSurvivor = null;
             int lowestTrust = 100;
             
@@ -601,22 +601,23 @@ namespace MasqueradeArk.Engine
             {
                 if (survivor.Hp > 0)
                 {
-                    int avgTrust = survivor.GetTrust(GameConstants.PLAYER_NAME);
-                    if (avgTrust < lowestTrust)
+                    int playerTrust = survivor.GetTrust(GameConstants.PLAYER_NAME);
+                    if (playerTrust < lowestTrust)
                     {
-                        lowestTrust = avgTrust;
+                        lowestTrust = playerTrust;
                         lowTrustSurvivor = survivor;
                     }
                 }
             }
             
+            // 当信任度低于30%时触发拒绝事件
             if (lowTrustSurvivor != null && lowestTrust < 30)
             {
                 var action = refuseActions[_rng.Randi() % refuseActions.Length];
                 var evt = new GameEvent(
                     GameEvent.EventType.Custom,
                     state.Day,
-                    $"{lowTrustSurvivor.SurvivorName} {action}，理由是不信任团队决策。"
+                    $"{lowTrustSurvivor.SurvivorName} {action}（信任值: {lowestTrust}%）。"
                 );
                 evt.AddInvolvedNpc(lowTrustSurvivor.SurvivorName);
                 events.Add(evt);
