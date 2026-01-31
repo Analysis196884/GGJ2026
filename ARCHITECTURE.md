@@ -217,8 +217,8 @@ Main (Control)
 
 ```
 ┌─────────────────────┐
-│ Dr. Sarah (Doctor)  │
-│ [秘密] (调试模式)   │
+│ Sarah (Doctor)      │
+│ [秘密] (调试模式)    │
 │ HP:    ████░░░░░░   │
 │ Stress:░░░░░░░░░░   │
 │ Suspic:░░░░░░░░░░   │
@@ -330,7 +330,7 @@ GameManager
 ```
 Day 1:
   Supplies: 50
-  Survivors: [Dr. Sarah, Jake, Lisa, Tom]
+  Survivors: [Sarah, Jake, Lisa, Tom]
 
                 ↓ SimulationEngine.AdvanceDay()
 
@@ -340,7 +340,7 @@ Day 2:
     - All Hunger: 0
   
   ✓ UpdateSurvivorState()
-    - Dr. Sarah: Stress 5 → 8 (自然增长)
+    - Sarah: Stress 5 → 8 (自然增长)
     - Jake: Hunger 0, 检查偷窃
       → Random(0, 50) = 42 > 25? YES
       → Steals 1 supply
@@ -454,7 +454,7 @@ public enum EventType
 修改 `GameState.Initialize()`：
 
 ```csharp
-var psychologist = new Survivor("Dr. James", "Psychologist", "心理学家...");
+var psychologist = new Survivor("James", "Psychologist", "心理学家...");
 psychologist.SetTrust("Player", 45);
 Survivors.Add(psychologist);
 ```

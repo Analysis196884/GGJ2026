@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using MasqueradeArk.Utilities;
 
 namespace MasqueradeArk.Core
 {
@@ -80,7 +81,8 @@ namespace MasqueradeArk.Core
         /// <summary>设置与指定 NPC 的信任度</summary>
         public void SetTrust(string npcName, int trustScore)
         {
-            _relationships[npcName] = Mathf.Clamp(trustScore, -100, 100);
+            trustScore = Mathf.Clamp(trustScore, 0, 100);
+            _relationships[npcName] = trustScore;
         }
 
         /// <summary>增加信任度</summary>

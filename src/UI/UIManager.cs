@@ -1,7 +1,9 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using MasqueradeArk.Core;
+using MasqueradeArk.Manager;
 
 namespace MasqueradeArk.UI
 {
@@ -26,6 +28,7 @@ namespace MasqueradeArk.UI
 		private HBoxContainer? _choicesContainer;
 		private LineEdit? _playerInput;
 		private InteractionDialog? _interactionDialog;
+		private GameManager? _gameManager;
 
 		// 信号
 		[Signal]
@@ -56,6 +59,7 @@ namespace MasqueradeArk.UI
 		public delegate void SurvivorCardClickedEventHandler(Survivor survivor);
 
 		private bool _isDebugMode = false;
+		private GameState? _currentState;
 
 		public override void _Ready()
 		{
@@ -101,6 +105,8 @@ namespace MasqueradeArk.UI
 					.GetNode<VBoxContainer>("EventLogVBox").GetNode<RichTextLabel>("EventLog");
 				if (_eventLog != null)
 				{
+					// 启用BBCode以支持颜色高亮
+					_eventLog.BbcodeEnabled = true;
 					// 扩大事件日志窗口：设置最小尺寸并允许横/纵向扩展以占满可用空间
 					_eventLog.CustomMinimumSize = new Vector2(800, 400);
 					_eventLog.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -175,6 +181,7 @@ namespace MasqueradeArk.UI
 		/// </summary>
 		public void UpdateUI(GameState state)
 		{
+			_currentState = state;
 			UpdateStatus(state);
 			UpdateSurvivorCards(state);
 		}
@@ -340,6 +347,7 @@ namespace MasqueradeArk.UI
 			var nameLabel = new Label();
 			nameLabel.Text = $"{survivor.SurvivorName} ({survivor.Role})";
 			nameLabel.AddThemeFontSizeOverride("font_size", 14);
+			nameLabel.AddThemeColorOverride("font_color", GetNPCColor(survivor));
 			vbox.AddChild(nameLabel);
 
 			if (_isDebugMode && survivor.Secrets.Length > 0)
@@ -368,7 +376,6 @@ namespace MasqueradeArk.UI
 			interactButton.Text = "对话";
 			interactButton.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 			interactButton.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-			interactButton.Flat = true; // 透明背景
 			interactButton.Pressed += () =>
 			{
 				GD.Print($"[UIManager] 幸存者卡片按钮被点击: {survivor.SurvivorName}");
@@ -413,7 +420,28 @@ namespace MasqueradeArk.UI
 		{
 			if (_eventLog != null)
 			{
-				_eventLog.AppendText(text + "\n");
+				string highlighted = text;
+
+				// 先高亮数字（放在前面，避免后续插入的 hex 色码被识别为数字）
+				highlighted = Regex.Replace(highlighted, @"-?\d+", "[color=#ffff00]$0[/color]");
+
+				// 高亮NPC名字（插入含 hex 的 BBCode）
+				if (_currentState != null)
+				{
+					foreach (var survivor in _currentState.Survivors)
+					{
+						string name = survivor.SurvivorName;
+						Color color = GetNPCColor(survivor);
+						string hex = color.ToHtml();
+						if (!hex.StartsWith("#"))
+							hex = "#" + hex;
+						// 若名字可能包含正则元字符，使用 Regex.Escape 再用 Regex.Replace
+						// highlighted = Regex.Replace(highlighted, Regex.Escape(name), $"[color={hex}]{name}[/color]");
+						highlighted = highlighted.Replace(name, $"[color={hex}]{name}[/color]");
+					}
+				}
+
+				_eventLog.AppendText(highlighted + "\n");
 				// 自动滚动到底部
 				_eventLog.GetVScrollBar().Value = _eventLog.GetVScrollBar().MaxValue;
 			}
@@ -551,27 +579,52 @@ namespace MasqueradeArk.UI
 		}
 
 		/// <summary>
+		/// 获取NPC名字对应的颜色
+		/// </summary>
+		private Color GetNPCColor(Survivor survivor)
+		{
+			// 使用名字哈希生成稳定色调
+			int hash = survivor.SurvivorName.GetHashCode();
+			float hue = Mathf.Abs(hash % 1000) / 1000.0f; // 0-1
+			return Color.FromHsv(hue, 0.7f, 0.9f);
+		}
+
+		/// <summary>
+		/// 获取 GameManager 实例（如果尚未找到则尝试查找）
+		/// </summary>
+		private GameManager GetGameManager()
+		{
+			if (_gameManager != null) return _gameManager;
+			
+			// 尝试通过父节点查找
+			_gameManager = GetParent<GameManager>();
+			if (_gameManager != null) return _gameManager;
+			
+			// 尝试通过根路径查找
+			_gameManager = GetNode<GameManager>("/root/GameManager");
+			if (_gameManager != null) return _gameManager;
+			
+			// 尝试通过组查找
+			var nodes = GetTree().GetNodesInGroup("GameManager");
+			if (nodes.Count > 0 && nodes[0] is GameManager gm)
+			{
+				_gameManager = gm;
+				return _gameManager;
+			}
+			
+			GD.PrintErr("[UIManager] 无法找到 GameManager");
+			return null;
+		}
+
+		/// <summary>
 		/// 初始化交互对话框
 		/// </summary>
 		private void InitializeInteractionDialog()
 		{
 			// 加载场景
-			var scene = GD.Load<PackedScene>("res://scenes/InteractionDialog.tscn");
-			if (scene != null)
-			{
-				_interactionDialog = scene.Instantiate<InteractionDialog>();
-				AddChild(_interactionDialog);
-				// 连接信号
-				_interactionDialog.InteractionCompleted += OnInteractionCompleted;
-				GD.Print("[UIManager] 交互对话框已加载");
-			}
-			else
-			{
-				GD.PrintErr("[UIManager] 无法加载交互对话框场景，创建默认实例");
-				_interactionDialog = new InteractionDialog();
-				AddChild(_interactionDialog);
-				_interactionDialog.InteractionCompleted += OnInteractionCompleted;
-			}
+			_interactionDialog = new InteractionDialog();
+			AddChild(_interactionDialog);
+			_interactionDialog.InteractionCompleted += OnInteractionCompleted;
 			// 默认隐藏
 			_interactionDialog.Visible = false;
 		}
@@ -582,6 +635,9 @@ namespace MasqueradeArk.UI
 		public void ShowInteractionDialog(Survivor npc)
 		{
 			GD.Print($"[UIManager] 显示交互对话框给 {npc.SurvivorName}");
+			// 暂停游戏事件系统
+			var gm = GetGameManager();
+			gm?.PauseGame();
 			if (_interactionDialog != null)
 			{
 				_interactionDialog.ShowDialog(npc);
@@ -600,17 +656,11 @@ namespace MasqueradeArk.UI
 			// 将 NPC 回应文本记录到日志
 			if (!string.IsNullOrEmpty(response.NarrativeText))
 			{
-				AppendLog($"> {response.NarrativeText}");
+				AppendLog($"> [i]{response.NarrativeText}[/i]");
 			}
-			// 根据成功状态提供视觉反馈（TODO: 播放音效/特效）
-			if (response.IsSuccess)
-			{
-				AppendLog("[成功]");
-			}
-			else
-			{
-				AppendLog("[失败]");
-			}
+			// 恢复游戏事件系统
+			var gm = GetGameManager();
+			gm?.ResumeGame();
 			// 更新 UI 以反映数值变化
 			// （因为 NarrativeEngine 已经应用了变化，只需刷新卡片）
 			// 注意：UIManager.UpdateUI 将在下次游戏循环时被调用

@@ -41,6 +41,7 @@ namespace MasqueradeArk.Manager
 		// 时间机制
 		private Timer? _gameTimer;
 		private bool _isAutoMode = false;
+		private bool _isPaused = false; // 游戏暂停标志，用于暂停事件系统
 		private float _dayDuration = 10.0f; // 10秒为一天
 
 		// 背景音乐
@@ -215,7 +216,7 @@ namespace MasqueradeArk.Manager
 		/// </summary>
 		private void OnTimerTimeout()
 		{
-			if (_isAutoMode && !_isGameOver && !_isProcessing)
+			if (_isAutoMode && !_isGameOver && !_isProcessing && !_isPaused)
 			{
 				GD.Print("[GameManager] 自动模式：推进到下一天");
 				OnNextDayPressed();
@@ -242,6 +243,46 @@ namespace MasqueradeArk.Manager
 				}
 			}
 			GD.Print($"[GameManager] 自动模式: {(_isAutoMode ? "开启" : "关闭")}");
+		}
+
+		/// <summary>
+		/// 暂停游戏事件系统（用于对话等场景）
+		/// </summary>
+		public void PauseGame()
+		{
+			if (_isPaused) return;
+			_isPaused = true;
+			// 暂停计时器
+			if (_gameTimer != null && _gameTimer.TimeLeft > 0)
+			{
+				_gameTimer.Stop();
+			}
+			// 禁用行动按钮
+			if (_uiManager != null)
+			{
+				_uiManager.SetActionButtonsEnabled(false);
+			}
+			GD.Print("[GameManager] 游戏已暂停（对话中）");
+		}
+
+		/// <summary>
+		/// 恢复游戏事件系统
+		/// </summary>
+		public void ResumeGame()
+		{
+			if (!_isPaused) return;
+			_isPaused = false;
+			// 如果自动模式开启，重新启动计时器
+			if (_isAutoMode && _gameTimer != null && !_isGameOver)
+			{
+				_gameTimer.Start();
+			}
+			// 恢复行动按钮（除非游戏结束）
+			if (_uiManager != null)
+			{
+				_uiManager.SetActionButtonsEnabled(!_isGameOver);
+			}
+			GD.Print("[GameManager] 游戏已恢复");
 		}
 
 		/// <summary>
@@ -316,7 +357,7 @@ namespace MasqueradeArk.Manager
 		/// </summary>
 		private void OnNextDayPressed()
 		{
-			if (_isGameOver || _isProcessing)
+			if (_isGameOver || _isProcessing || _isPaused)
 				return;
 
 			_isProcessing = true;
@@ -350,7 +391,7 @@ namespace MasqueradeArk.Manager
 				{
 					if (!string.IsNullOrEmpty(narrative.NarrativeText) && narrative.NarrativeText != evt.Description)
 					{
-						this.Log(narrative.NarrativeText);
+						this.Log($"[i]{narrative.NarrativeText}[/i]");
 					}
 
 					// 如果有选择，显示给玩家
@@ -364,7 +405,7 @@ namespace MasqueradeArk.Manager
 					// 无选择，继续到Step 3
 					// Step 3: 生成日间摘要
 					var summary = _narrativeEngine.GenerateDaySummary(_gameState);
-					_uiManager.AppendLog(summary);
+					_uiManager.AppendLog($"[i]{summary}[/i]");
 
 					// Step 4: 更新 UI
 					_uiManager.UpdateUI(_gameState);
@@ -384,7 +425,7 @@ namespace MasqueradeArk.Manager
 		/// </summary>
 		private void OnMeetingPressed()
 		{
-			if (_isGameOver || _isProcessing)
+			if (_isGameOver || _isProcessing || _isPaused)
 				return;
 
 			GD.Print("召开会议...");

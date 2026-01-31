@@ -334,7 +334,7 @@ namespace MasqueradeArk.Engine
             }
             
             // 拒绝事件（基于低信任度）
-            TriggerRefuseEvent(state, events);
+            // TriggerRefuseEvent(state, events);
         }
 
         /// <summary>
@@ -577,50 +577,6 @@ namespace MasqueradeArk.Engine
                     // 减少破坏者的压力
                     stressedSurvivor.Stress = Math.Max(0, stressedSurvivor.Stress - 20);
                 }
-            }
-        }
-
-        /// <summary>
-        /// 触发拒绝事件 - 基于信任值
-        /// </summary>
-        private void TriggerRefuseEvent(GameState state, List<GameEvent> events)
-        {
-            var refuseActions = new string[]
-            {
-                "拒绝参与巡逻",
-                "拒绝分享物资",
-                "拒绝协助修理",
-                "拒绝参加会议"
-            };
-            
-            // 寻找对玩家信任度最低的幸存者
-            Survivor lowTrustSurvivor = null;
-            int lowestTrust = 100;
-            
-            foreach (var survivor in state.Survivors)
-            {
-                if (survivor.Hp > 0)
-                {
-                    int playerTrust = survivor.GetTrust(GameConstants.PLAYER_NAME);
-                    if (playerTrust < lowestTrust)
-                    {
-                        lowestTrust = playerTrust;
-                        lowTrustSurvivor = survivor;
-                    }
-                }
-            }
-            
-            // 当信任度低于30%时触发拒绝事件
-            if (lowTrustSurvivor != null && lowestTrust < 30)
-            {
-                var action = refuseActions[_rng.Randi() % refuseActions.Length];
-                var evt = new GameEvent(
-                    GameEvent.EventType.Custom,
-                    state.Day,
-                    $"{lowTrustSurvivor.SurvivorName} {action}（信任值: {lowestTrust}%）。"
-                );
-                evt.AddInvolvedNpc(lowTrustSurvivor.SurvivorName);
-                events.Add(evt);
             }
         }
 

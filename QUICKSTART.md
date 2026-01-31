@@ -100,7 +100,7 @@ secrets
 
 ### 伤害指定 NPC
 ```
-damage Dr. Sarah
+damage Sarah
 ```
 
 对指定 NPC 造成 20 点伤害（调试用）
@@ -123,7 +123,7 @@ infect Jake
 | **HP** | 0-100 | 生命值，≤0 时死亡 |
 | **Hunger** | 0-100 | 饥饿度，>80 时伤害 HP |
 | **Stress** | 0-100 | 压力值，>80 时可能崩溃 |
-| **Suspicion** | 0-100 | 被怀疑程度 |
+| **Trust**  | 0-100 | 对玩家的信任值 |
 | **Integrity** | -100~100 | 道德值，影响偷窃概率 |
 
 ### 秘密类型
@@ -200,7 +200,7 @@ infect Jake
 public void Initialize()
 {
     // 修改初始幸存者
-    var doctor = new Survivor("Dr. Sarah", "Doctor", "一位经验丰富的医生");
+    var doctor = new Survivor("Sarah", "Doctor", "一位经验丰富的医生");
     doctor.AddSecret("Infected");  // 给医生添加秘密
     
     Survivors.Add(doctor);

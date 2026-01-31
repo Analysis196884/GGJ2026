@@ -54,22 +54,13 @@ namespace MasqueradeArk.UI
             _narrativeEngine = GetNode<NarrativeEngine>("/root/GameManager/NarrativeEngine");
             if (_narrativeEngine == null)
             {
-                GD.PrintErr("[InteractionDialog] 未找到 NarrativeEngine，尝试其他路径");
-                // 尝试从场景根节点查找
+                // 尝试通过组查找
                 var root = GetTree().Root;
-                _narrativeEngine = root.GetNodeOrNull<NarrativeEngine>("GameManager/NarrativeEngine");
+                _narrativeEngine = root.GetNodeOrNull<NarrativeEngine>("/GameManager/NarrativeEngine");
                 if (_narrativeEngine == null)
                 {
-                    GD.PrintErr("[InteractionDialog] 仍然未找到 NarrativeEngine");
+                    GD.PrintErr("[InteractionDialog] 未找到 NarrativeEngine");
                 }
-                else
-                {
-                    GD.Print("[InteractionDialog] 通过备用路径找到 NarrativeEngine");
-                }
-            }
-            else
-            {
-                GD.Print("[InteractionDialog] NarrativeEngine 已找到");
             }
         }
 
@@ -95,6 +86,8 @@ namespace MasqueradeArk.UI
                 PlayerInput.Name = "PlayerInput";
                 PlayerInput.PlaceholderText = "输入你想说的话...";
                 PlayerInput.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+                // 不透明背景
+                PlayerInput.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = Colors.Black });
                 AddChild(PlayerInput);
             }
 
@@ -116,22 +109,20 @@ namespace MasqueradeArk.UI
         {
             if (_narrativeEngine != null) return;
             
-            GD.Print("[InteractionDialog] 尝试查找 NarrativeEngine...");
             // 首先通过组查找（避免路径错误）
             var nodes = GetTree().GetNodesInGroup("NarrativeEngine");
             if (nodes.Count > 0 && nodes[0] is NarrativeEngine ne)
             {
                 _narrativeEngine = ne;
-                GD.Print($"[InteractionDialog] 通过组找到 NarrativeEngine: {_narrativeEngine}");
                 return;
             }
             
             // 组查找失败，尝试路径查找（可能会产生错误日志，但忽略）
             var root = GetTree().Root;
-            _narrativeEngine = root.GetNodeOrNull<NarrativeEngine>("GameManager/NarrativeEngine");
+            _narrativeEngine = root.GetNodeOrNull<NarrativeEngine>("/root/GameManager/NarrativeEngine");
             if (_narrativeEngine == null)
             {
-                _narrativeEngine = GetNode<NarrativeEngine>("/root/GameManager/NarrativeEngine");
+                _narrativeEngine = GetNode<NarrativeEngine>("GameManager/NarrativeEngine");
             }
             if (_narrativeEngine == null)
             {
@@ -142,7 +133,18 @@ namespace MasqueradeArk.UI
                 GD.Print($"[InteractionDialog] 通过路径找到 NarrativeEngine: {_narrativeEngine}");
             }
         }
-
+        
+        /// <summary>
+        /// 获取NPC名字对应的颜色
+        /// </summary>
+        private Color GetNPCColor(Survivor survivor)
+        {
+            // 使用名字哈希生成稳定色调
+            int hash = survivor.SurvivorName.GetHashCode();
+            float hue = Mathf.Abs(hash % 1000) / 1000.0f; // 0-1
+            return Color.FromHsv(hue, 0.7f, 0.9f);
+        }
+        
         /// <summary>
         /// 显示对话框并设置NPC
         /// </summary>
@@ -155,6 +157,7 @@ namespace MasqueradeArk.UI
             if (NPCLabel != null)
             {
                 NPCLabel.Text = $"与 {npc.SurvivorName} ({npc.Role}) 对话";
+                NPCLabel.AddThemeColorOverride("font_color", GetNPCColor(npc));
             }
             if (PlayerInput != null)
             {
@@ -170,7 +173,7 @@ namespace MasqueradeArk.UI
 
             // 设置对话框布局
             SetupDialogLayout();
-
+            
             Visible = true;
         }
 
@@ -228,7 +231,6 @@ namespace MasqueradeArk.UI
                 return;
             }
 
-            GD.Print($"[InteractionDialog] 开始处理输入: {input}");
             // 开始处理
             _isProcessing = true;
             SendButton.Disabled = true;
@@ -237,7 +239,6 @@ namespace MasqueradeArk.UI
             // 调用交互处理
             _narrativeEngine.ProcessPlayerInteraction(_currentNPC, input, (response) =>
             {
-                GD.Print($"[InteractionDialog] 收到交互响应: {response}");
                 // 处理完成
                 _isProcessing = false;
                 SendButton.Disabled = false;

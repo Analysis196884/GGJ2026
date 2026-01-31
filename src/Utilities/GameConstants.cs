@@ -54,7 +54,7 @@ namespace MasqueradeArk.Utilities
         public const int MAX_ATTRIBUTE_VALUE = 100;
         public const int MIN_INTEGRITY = -100;
         public const int MAX_INTEGRITY = 100;
-        public const int MIN_TRUST = -100;
+        public const int MIN_TRUST = 100;
         public const int MAX_TRUST = 100;
         
         // ===== UI 配置 =====

@@ -67,7 +67,6 @@ namespace MasqueradeArk.Engine
         	// 如果仍未找到，创建默认实例（但应该由 GameManager 提供）
         	if (_llmClient == null)
         	{
-        		GD.PrintErr("[NarrativeEngine] 警告：未找到 LLMClient，创建默认实例（启用模拟模式）");
         		_llmClient = new LLMClient();
         		_llmClient.Enabled = true;  // 启用，但使用模拟模式（因为没有 API 密钥）
         		AddChild(_llmClient);
@@ -316,13 +315,8 @@ namespace MasqueradeArk.Engine
         /// </summary>
         public string GenerateDaySummary(GameState state)
         {
-            var summaries = new[]
-            {
-                $"第 {state.Day} 天。我们还活着。物资还有 {state.Supplies} 单位。",
-                $"又活过了一天。{state.GetAliveSurvivorCount()} 个幸存者。{state.Supplies} 单位物资。",
-                $"日落时分。营地仍然站立。防御值：{state.Defense}。"
-            };
-            return summaries[_rng.Randi() % summaries.Length];
+            var summary = $"第 {state.Day} 天。我们还活着。物资还有 {state.Supplies} 单位。";
+            return summary;
         }
 
         /// <summary>

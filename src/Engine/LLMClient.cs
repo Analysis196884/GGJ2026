@@ -290,7 +290,6 @@ namespace MasqueradeArk.Engine
         /// </summary>
         public void GenerateInteractionResponse(Survivor npc, string playerInput, Action<string> callback)
         {
-            GD.Print($"[LLMClient] GenerateInteractionResponse: Enabled={Enabled}, ApiKey empty? {string.IsNullOrEmpty(ApiKey)}, Simulate={Simulate}");
             if (!Enabled)
             {
                 GD.Print($"[LLMClient] LLM 未启用，返回模拟JSON");
@@ -300,26 +299,23 @@ namespace MasqueradeArk.Engine
 
             if (string.IsNullOrEmpty(ApiKey))
             {
-                GD.Print($"[LLMClient] 模拟模式，生成交互响应JSON");
                 callback(GenerateSimulatedInteractionResponse(npc, playerInput));
                 return;
             }
 
             // 真实 API 调用
-            GD.Print($"[LLMClient] 调用真实 API 生成交互响应JSON");
             CallDeepSeekApiForInteraction(npc, playerInput, callback);
         }
 
         private void CallDeepSeekApiForInteraction(Survivor npc, string playerInput, Action<string> callback)
         {
             string systemPrompt = """
-            你是一个末日生存游戏的NPC裁判。根据NPC的性格和当前状态，判断玩家的说服尝试是否成功。
+            你是一个末日生存游戏中具有个性的NPC。根据NPC的性格和当前状态，生成相应的回答。
             必须只返回JSON格式，不要任何其他文本。JSON格式：
             {
                 "NarrativeText": "NPC的回应文本",
                 "StressDelta": 压力值变化量（整数，如-10或+5）,
                 "TrustDelta": 信任度变化量（整数）,
-                "IsSuccess": true或false（玩家意图是否达成）,
                 "Mood": "情绪关键词如Angry, Neutral, Happy"
             }
             """;
@@ -330,11 +326,11 @@ namespace MasqueradeArk.Engine
             - 角色：{npc.Role}
             - 背景：{npc.Bio}
             - 当前压力值：{npc.Stress}
-            - 当前信任度：{npc.GetTrust("Player")}
+            - 当前信任度：{npc.Trust}
 
             玩家输入：{playerInput}
 
-            根据NPC性格和状态，判断玩家的说服效果，返回JSON。
+            根据NPC性格和状态，生成对话文本，返回JSON。
             """;
 
             var requestBody = new
@@ -384,7 +380,6 @@ namespace MasqueradeArk.Engine
                         string content = choices[0].GetProperty("message").GetProperty("content").GetString()?.Trim() ?? "";
                         // 清理可能的Markdown标记
                         content = CleanJson(content);
-                        GD.Print($"[LLMClient] 交互响应JSON: {content}");
                         callback(content);
                     }
                     else

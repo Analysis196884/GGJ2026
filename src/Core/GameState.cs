@@ -44,7 +44,7 @@ namespace MasqueradeArk.Core
 			Survivors.Clear();
 
 			// 创建初始幸存者
-			var doctor = new Survivor("Dr. Sarah", "Doctor", "一位经验丰富的医生，致力于救治幸存者。");
+			var doctor = new Survivor("Sarah", "Doctor", "一位经验丰富的医生，致力于救治幸存者。");
 			var mercenary = new Survivor("Jake", "Mercenary", "退役特种兵，擅长战斗和侦察。");
 			var engineer = new Survivor("Lisa", "Engineer", "聪慧的工程师，能维护基地设施。");
 			var farmer = new Survivor("Tom", "Farmer", "前农场主，懂得生存技能。");
@@ -55,17 +55,17 @@ namespace MasqueradeArk.Core
 			doctor.SetTrust("Tom", 40);
 			doctor.SetTrust(GameConstants.PLAYER_NAME, GameConstants.INITIAL_TRUST);
 
-			mercenary.SetTrust("Dr. Sarah", 20);
+			mercenary.SetTrust("Sarah", 20);
 			mercenary.SetTrust("Lisa", 10);
 			mercenary.SetTrust("Tom", 35);
 			mercenary.SetTrust(GameConstants.PLAYER_NAME, 40);
 
-			engineer.SetTrust("Dr. Sarah", 60);
+			engineer.SetTrust("Sarah", 60);
 			engineer.SetTrust("Jake", 15);
 			engineer.SetTrust("Tom", 55);
 			engineer.SetTrust(GameConstants.PLAYER_NAME, 45);
 
-			farmer.SetTrust("Dr. Sarah", 50);
+			farmer.SetTrust("Sarah", 50);
 			farmer.SetTrust("Jake", 25);
 			farmer.SetTrust("Lisa", 60);
 			farmer.SetTrust(GameConstants.PLAYER_NAME, 55);
