@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Text.Json;
 using MasqueradeArk.Core;
 
 namespace MasqueradeArk.Engine
@@ -318,6 +319,80 @@ namespace MasqueradeArk.Engine
                 $"日落时分。营地仍然站立。防御值：{state.Defense}。"
             };
             return summaries[_rng.Randi() % summaries.Length];
+        }
+
+        /// <summary>
+        /// 处理玩家与NPC的交互（回调版本）
+        /// </summary>
+        public void ProcessPlayerInteraction(Survivor npc, string playerInput, Action<NarrativeActionResponse> callback)
+        {
+            // 检查是否为命令（以"/"开头）
+            if (playerInput.StartsWith("/"))
+            {
+                GD.Print("[NarrativeEngine] 检测到命令输入，跳过交互处理");
+                callback(new NarrativeActionResponse("", 0, 0, false, "Neutral"));
+                return;
+            }
+
+            // 调用LLM生成响应
+            _llmClient.GenerateInteractionResponse(npc, playerInput, (jsonResponse) =>
+            {
+                try
+                {
+                    // 解析JSON
+                    var response = JsonSerializer.Deserialize<NarrativeActionResponse>(jsonResponse);
+                    if (response == null)
+                    {
+                        throw new Exception("反序列化失败");
+                    }
+
+                    // 应用数值变化
+                    ApplyInteractionChanges(npc, response);
+
+                    callback(response);
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"[NarrativeEngine] 解析交互响应失败: {ex.Message}, JSON: {jsonResponse}");
+                    // 返回默认响应
+                    var defaultResponse = new NarrativeActionResponse("我不太明白你在说什么。", 0, 0, false, "Confused");
+                    callback(defaultResponse);
+                }
+            });
+        }
+
+        /// <summary>
+        /// 处理玩家与NPC的交互（同步版本）
+        /// </summary>
+        public NarrativeActionResponse ProcessPlayerInteraction(Survivor npc, string playerInput)
+        {
+            var tcs = new TaskCompletionSource<NarrativeActionResponse>();
+            ProcessPlayerInteraction(npc, playerInput, (result) => tcs.SetResult(result));
+
+            // 设置超时
+            var timeoutTask = Task.Delay(30000); // 30秒超时
+            var completedTask = Task.WhenAny(tcs.Task, timeoutTask).Result;
+            if (completedTask == timeoutTask)
+            {
+                GD.PrintErr("[NarrativeEngine] 交互处理超时，返回默认响应");
+                return new NarrativeActionResponse("处理超时，请重试。", 0, 0, false, "Neutral");
+            }
+            return tcs.Task.Result;
+        }
+
+        /// <summary>
+        /// 应用交互产生的数值变化
+        /// </summary>
+        private void ApplyInteractionChanges(Survivor npc, NarrativeActionResponse response)
+        {
+            // 修改压力值
+            npc.Stress += response.StressDelta;
+            npc.Stress = Mathf.Clamp(npc.Stress, 0, 100);
+
+            // 修改信任度（使用Player作为键）
+            npc.ModifyTrust("Player", response.TrustDelta);
+
+            GD.Print($"[NarrativeEngine] 应用交互变化 - {npc.SurvivorName}: Stress {npc.Stress - response.StressDelta} -> {npc.Stress}, Trust {npc.GetTrust("Player") - response.TrustDelta} -> {npc.GetTrust("Player")}");
         }
 
         /// <summary>

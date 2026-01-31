@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://diby7fnpmijmi"]
+
+[node name="root" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+
+[node name="NPCLabel" type="Label" parent="."]
+layout_mode = 0
+
+[node name="PlayerInput" type="TextEdit" parent="."]
+layout_mode = 0
+
+[node name="SendButton" type="Button" parent="."]
+layout_mode = 0

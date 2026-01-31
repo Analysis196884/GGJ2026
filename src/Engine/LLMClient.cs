@@ -22,7 +22,7 @@ namespace MasqueradeArk.Engine
         public string ApiEndpoint { get; set; } = "https://api.deepseek.com/chat/completions";
 
         [Export]
-        public string ApiKey { get; set; } = "sk-286f5550258c4d579e4232d3c17fe3ff";
+        public string ApiKey { get; set; } = "";
 
         [Export]
         public string Model { get; set; } = "deepseek-chat";
@@ -31,7 +31,7 @@ namespace MasqueradeArk.Engine
         public bool Simulate { get; set; } = false;
 
         private RandomNumberGenerator _rng = new();
-        private HttpRequest _httpRequest;
+        private HttpRequest _httpRequest = null!;
         private bool _isRequesting = false;
         private Queue<(string eventType, string eventDescription, GameState state, Action<string> callback)> _requestQueue = new();
 
@@ -40,11 +40,50 @@ namespace MasqueradeArk.Engine
             _rng.Randomize();
         }
 
+        private void LoadApiKey()
+        {
+            // 优先从环境变量读取
+            string envKey = System.Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY");
+            if (!string.IsNullOrEmpty(envKey))
+            {
+                ApiKey = envKey;
+                GD.Print("[LLMClient] API Key loaded from environment variable");
+                return;
+            }
+
+            // 从配置文件读取
+            string configPath = ProjectSettings.GlobalizePath("user://LLMAPI.cfg");
+            if (System.IO.File.Exists(configPath))
+            {
+                try
+                {
+                    var lines = System.IO.File.ReadAllLines(configPath, Encoding.UTF8);
+                    foreach (var line in lines)
+                    {
+                        var trimmed = line.Trim();
+                        if (trimmed.StartsWith("key="))
+                        {
+                            ApiKey = trimmed.Substring(4);
+                            GD.Print("[LLMClient] API Key loaded from config file");
+                            return;
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    GD.PrintErr($"[LLMClient] Error reading config file: {e.Message}");
+                }
+            }
+
+            GD.Print("[LLMClient] No API Key found, using simulation mode");
+        }
+
         public override void _Ready()
         {
             base._Ready();
             _httpRequest = new HttpRequest();
             AddChild(_httpRequest);
+            LoadApiKey();
         }
 
         private void CallDeepSeekApi(string eventType, string eventDescription, GameState state, Action<string> callback)
@@ -244,6 +283,164 @@ namespace MasqueradeArk.Engine
 
             // 默认返回事件描述
             return eventDescription;
+        }
+
+        /// <summary>
+        /// 生成玩家与NPC交互的响应（返回JSON字符串）
+        /// </summary>
+        public void GenerateInteractionResponse(Survivor npc, string playerInput, Action<string> callback)
+        {
+            if (!Enabled)
+            {
+                GD.Print($"[LLMClient] LLM 未启用，返回模拟JSON");
+                callback(GenerateSimulatedInteractionResponse(npc, playerInput));
+                return;
+            }
+
+            if (string.IsNullOrEmpty(ApiKey))
+            {
+                GD.Print($"[LLMClient] 模拟模式，生成交互响应JSON");
+                callback(GenerateSimulatedInteractionResponse(npc, playerInput));
+                return;
+            }
+
+            // 真实 API 调用
+            GD.Print($"[LLMClient] 调用真实 API 生成交互响应JSON");
+            CallDeepSeekApiForInteraction(npc, playerInput, callback);
+        }
+
+        private void CallDeepSeekApiForInteraction(Survivor npc, string playerInput, Action<string> callback)
+        {
+            string systemPrompt = """
+            你是一个末日生存游戏的NPC裁判。根据NPC的性格和当前状态，判断玩家的说服尝试是否成功。
+            必须只返回JSON格式，不要任何其他文本。JSON格式：
+            {
+                "NarrativeText": "NPC的回应文本",
+                "StressDelta": 压力值变化量（整数，如-10或+5）,
+                "TrustDelta": 信任度变化量（整数）,
+                "IsSuccess": true或false（玩家意图是否达成）,
+                "Mood": "情绪关键词如Angry, Neutral, Happy"
+            }
+            """;
+
+            string userPrompt = $"""
+            NPC信息：
+            - 姓名：{npc.SurvivorName}
+            - 角色：{npc.Role}
+            - 背景：{npc.Bio}
+            - 当前压力值：{npc.Stress}
+            - 当前信任度：{npc.GetTrust("Player")}
+
+            玩家输入：{playerInput}
+
+            根据NPC性格和状态，判断玩家的说服效果，返回JSON。
+            """;
+
+            var requestBody = new
+            {
+                model = Model,
+                messages = new[]
+                {
+                    new { role = "system", content = systemPrompt },
+                    new { role = "user", content = userPrompt }
+                },
+                max_tokens = 300,
+                temperature = 0.7
+            };
+
+            string jsonBody = JsonSerializer.Serialize(requestBody);
+            var headers = new string[]
+            {
+                "Authorization: Bearer " + ApiKey,
+                "Content-Type: application/json"
+            };
+
+            void OnRequestCompleted(long result, long responseCode, string[] headers, byte[] body)
+            {
+                _httpRequest.RequestCompleted -= OnRequestCompleted;
+
+                if (result != (long)HttpRequest.Result.Success)
+                {
+                    GD.Print("[LLMClient] 交互请求失败，使用模拟JSON");
+                    callback(GenerateSimulatedInteractionResponse(npc, playerInput));
+                    return;
+                }
+
+                if (responseCode != 200)
+                {
+                    GD.PrintErr($"[LLM API Error] {responseCode}: {System.Text.Encoding.UTF8.GetString(body)}");
+                    callback(GenerateSimulatedInteractionResponse(npc, playerInput));
+                    return;
+                }
+
+                try
+                {
+                    string responseBody = System.Text.Encoding.UTF8.GetString(body);
+                    using JsonDocument doc = JsonDocument.Parse(responseBody);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                    {
+                        string content = choices[0].GetProperty("message").GetProperty("content").GetString()?.Trim() ?? "";
+                        // 清理可能的Markdown标记
+                        content = CleanJson(content);
+                        GD.Print($"[LLMClient] 交互响应JSON: {content}");
+                        callback(content);
+                    }
+                    else
+                    {
+                        GD.Print("[LLMClient] 无交互响应，使用模拟JSON");
+                        callback(GenerateSimulatedInteractionResponse(npc, playerInput));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"[LLMClient] 解析交互响应异常: {ex.Message}");
+                    callback(GenerateSimulatedInteractionResponse(npc, playerInput));
+                }
+            }
+
+            _httpRequest.RequestCompleted += OnRequestCompleted;
+            Error error = _httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
+
+            if (error != Error.Ok)
+            {
+                GD.PrintErr($"[LLMClient] 交互请求失败: {error}");
+                callback(GenerateSimulatedInteractionResponse(npc, playerInput));
+            }
+        }
+
+        /// <summary>
+        /// 生成模拟交互响应JSON
+        /// </summary>
+        private string GenerateSimulatedInteractionResponse(Survivor npc, string playerInput)
+        {
+            var responses = new[]
+            {
+                "{\"NarrativeText\":\"我明白了。谢谢你的关心。\",\"StressDelta\":-5,\"TrustDelta\":10,\"IsSuccess\":true,\"Mood\":\"Grateful\"}",
+                "{\"NarrativeText\":\"你说什么？我不明白。\",\"StressDelta\":2,\"TrustDelta\":-5,\"IsSuccess\":false,\"Mood\":\"Confused\"}",
+                "{\"NarrativeText\":\"别烦我！我有自己的事。\",\"StressDelta\":10,\"TrustDelta\":-15,\"IsSuccess\":false,\"Mood\":\"Angry\"}",
+                "{\"NarrativeText\":\"好吧，我会考虑的。\",\"StressDelta\":-2,\"TrustDelta\":5,\"IsSuccess\":true,\"Mood\":\"Neutral\"}"
+            };
+            return responses[_rng.Randi() % responses.Length];
+        }
+
+        /// <summary>
+        /// 清理JSON字符串，去除可能的Markdown标记
+        /// </summary>
+        private string CleanJson(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return raw;
+
+            // 去除 ```json 和 ``` 标记
+            raw = raw.Replace("```json", "").Replace("```", "").Trim();
+
+            // 去除可能的其他Markdown
+            if (raw.StartsWith("json\n"))
+            {
+                raw = raw.Substring(5);
+            }
+
+            return raw.Trim();
         }
 
         /// <summary>
