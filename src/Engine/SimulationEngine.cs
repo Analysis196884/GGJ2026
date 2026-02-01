@@ -128,7 +128,8 @@ namespace MasqueradeArk.Engine
                     int trustDecrease = (int)(_rng.Randf() *
                         (GameConstants.MAX_TRUST_DECREASE - GameConstants.MIN_TRUST_DECREASE)) +
                         GameConstants.MIN_TRUST_DECREASE;
-                    survivor.Trust -= trustDecrease;
+                    // 使用ModifyTrust确保正确更新对玩家的信任值
+                    survivor.ModifyTrust(GameConstants.PLAYER_NAME, -trustDecrease);
                     
                     var evt = new GameEvent(
                         GameEvent.EventType.InfectionDetected,
@@ -293,7 +294,8 @@ namespace MasqueradeArk.Engine
                     survivor.Integrity += delta;
                     break;
                 case "trust":
-                    survivor.Trust += delta;
+                    // 使用ModifyTrust确保正确更新对玩家的信任值
+                    survivor.ModifyTrust(GameConstants.PLAYER_NAME, delta);
                     break;
                 case "stamina":
                     survivor.Stamina += delta;
@@ -724,7 +726,7 @@ namespace MasqueradeArk.Engine
                         effects = effectsData;
                     }
 
-                    GD.Print($"[SimulationEngine] LLM随机事件生成成功: {gameEvent.Description}");
+                    // GD.Print($"[SimulationEngine] LLM随机事件生成成功: {gameEvent.Description}");
                     callback((gameEvent, effects));
                 }
                 catch (Exception ex)

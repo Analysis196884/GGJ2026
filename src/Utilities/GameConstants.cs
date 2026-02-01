@@ -40,7 +40,7 @@ namespace MasqueradeArk.Utilities
         public const int INITIAL_STRESS = 0;
         public const int INITIAL_INTEGRITY = 0;
         public const int INITIAL_SURVIVOR_TRUST = 100;
-        public const int INITIAL_TRUST = 50;
+        public const int INITIAL_TRUST = 75;
         
         // ===== 游戏胜利条件 =====
         public const int VICTORY_DAYS = 30;

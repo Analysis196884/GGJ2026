@@ -58,17 +58,17 @@ namespace MasqueradeArk.Core
 			mercenary.SetTrust("Sarah", 20);
 			mercenary.SetTrust("Lisa", 10);
 			mercenary.SetTrust("Tom", 35);
-			mercenary.SetTrust(GameConstants.PLAYER_NAME, 40);
+			mercenary.SetTrust(GameConstants.PLAYER_NAME, GameConstants.INITIAL_TRUST);
 
 			engineer.SetTrust("Sarah", 60);
 			engineer.SetTrust("Jake", 15);
 			engineer.SetTrust("Tom", 55);
-			engineer.SetTrust(GameConstants.PLAYER_NAME, 45);
+			engineer.SetTrust(GameConstants.PLAYER_NAME, GameConstants.INITIAL_TRUST);
 
 			farmer.SetTrust("Sarah", 50);
 			farmer.SetTrust("Jake", 25);
 			farmer.SetTrust("Lisa", 60);
-			farmer.SetTrust(GameConstants.PLAYER_NAME, 55);
+			farmer.SetTrust(GameConstants.PLAYER_NAME, GameConstants.INITIAL_TRUST);
 
 			Survivors.Add(doctor);
 			Survivors.Add(mercenary);
@@ -83,7 +83,7 @@ namespace MasqueradeArk.Core
 			// 初始化场所
 			InitializeLocations();
 			
-			AppendLog("欢迎来到废墟。你和幸存者们开始了新的一天。");
+			AppendLog("欢迎来到暴雪避难所。你和幸存者们开始了新的一天。");
 		}
 
 		/// <summary>初始化场所</summary>

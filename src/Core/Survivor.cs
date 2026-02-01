@@ -66,26 +66,43 @@ namespace MasqueradeArk.Core
             Secrets = new string[] { };
         }
 
-        /// <summary>获取与指定 NPC 的信任度</summary>
+        /// <summary>获取与指定 NPC 或玩家的信任度</summary>
         public int GetTrust(string npcName)
         {
+            // 如果是玩家，直接返回Trust属性
+            if (npcName == GameConstants.PLAYER_NAME)
+            {
+                return Trust;
+            }
+            
             // 如果有专门的关系记录，使用关系记录
             if (_relationships.TryGetValue(npcName, out var trust))
             {
                 return trust;
             }
-            // 否则返回通用信任值
+            
+            // 否则返回通用信任值（默认初始值）
             return Trust;
         }
 
-        /// <summary>设置与指定 NPC 的信任度</summary>
+        /// <summary>设置与指定 NPC 或玩家的信任度</summary>
         public void SetTrust(string npcName, int trustScore)
         {
             trustScore = Mathf.Clamp(trustScore, 0, 100);
-            _relationships[npcName] = trustScore;
+            
+            // 如果是玩家，直接设置Trust属性
+            if (npcName == GameConstants.PLAYER_NAME)
+            {
+                Trust = trustScore;
+            }
+            else
+            {
+                // 否则设置关系字典
+                _relationships[npcName] = trustScore;
+            }
         }
 
-        /// <summary>增加信任度</summary>
+        /// <summary>修改与指定 NPC 或玩家的信任度</summary>
         public void ModifyTrust(string npcName, int delta)
         {
             var current = GetTrust(npcName);

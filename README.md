@@ -18,7 +18,7 @@
 ## 项目结构
 
 ```
-AIeve/
+Masquerade Ark/
 ├── src/
 │   ├── Core/
 │   │   ├── Survivor.cs          # NPC 数据结构
@@ -34,7 +34,7 @@ AIeve/
 ├── scenes/
 │   └── Main.tscn                # 主场景
 ├── project.godot                # Godot 项目配置
-├── AIeve.csproj                 # C# 项目文件
+├── Masquerade Ark.csproj                 # C# 项目文件
 ├── GUIDE.md                     # 项目设计指南
 └── README.md                    # 本文件
 ```
@@ -235,15 +235,15 @@ infect <name>           # 感染指定幸存者
 
 1. **克隆项目**
    ```bash
-   git clone <repo-url> AIeve
-   cd AIeve
+   git clone <repo-url> Masquerade Ark
+   cd Masquerade Ark
    ```
 
 2. **打开 Godot**
    ```bash
    godot
    ```
-   选择 `AIeve` 文件夹作为项目
+   选择 `Masquerade Ark` 文件夹作为项目
 
 3. **运行游戏**
    在 Godot 编辑器中按 `F5` 或点击"播放"按钮

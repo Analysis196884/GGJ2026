@@ -672,6 +672,7 @@ JSON 格式要求（严禁 Markdown）：
         ]
     }
 }
+注释：TrustDelta 是相对于玩家的信任度变化，如果事件中没有涉及玩家，则该值为 0。
 """;
 
             // 3. 构建 User Prompt
