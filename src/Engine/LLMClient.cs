@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Text;
 using System.Text.Json;
 using MasqueradeArk.Core;
+using MasqueradeArk.Utilities;
 
 namespace MasqueradeArk.Engine
 {
@@ -15,6 +16,17 @@ namespace MasqueradeArk.Engine
     [GlobalClass]
     public partial class LLMClient : Node
     {
+        /// <summary>
+        /// 游戏背景设定 - 所有LLM调用都会使用此背景
+        /// </summary>
+        private const string GameLore = """
+背景设定：
+这是一个名为《假面方舟 (Masquerade Ark)》的生存推理游戏。
+- 环境：丧尸末日，避难所被暴雪封锁，外界是零下 30 度的死寂与尸潮。
+- 氛围：幽闭恐惧、资源匮乏、信任崩塌。类似于《The Walking Dead》结合《阿加莎·克里斯蒂》的风格。
+- 核心冲突：幸存者们各自戴着"面具"，每个人都有不可告人的秘密（如隐瞒感染、私藏物资、复仇动机）。真正的威胁往往来自屋内的人心，而非屋外的丧尸。
+""";
+
         [Export]
         public bool Enabled { get; set; } = false;
 
@@ -309,29 +321,56 @@ namespace MasqueradeArk.Engine
 
         private void CallDeepSeekApiForInteraction(Survivor npc, string playerInput, Action<string> callback)
         {
-            string systemPrompt = """
-            你是一个末日生存游戏中具有个性的NPC。根据NPC的性格和当前状态，生成相应的回答。
-            必须只返回JSON格式，不要任何其他文本。JSON格式：
-            {
-                "NarrativeText": "NPC的回应文本",
-                "StressDelta": 压力值变化量（整数，如-10或+5）,
-                "TrustDelta": 信任度变化量（整数）,
-                "Mood": "情绪关键词如Angry, Neutral, Happy"
-            }
-            """;
+            // 获取NPC的秘密信息
+            string secretsInfo = npc.Secrets.Length > 0
+                ? string.Join(", ", npc.Secrets)
+                : "无秘密";
+            
+            // 获取对玩家的信任度（使用GetTrust方法）
+            int trustToPlayer = npc.GetTrust(GameConstants.PLAYER_NAME);
 
+            // 1. 构建 System Prompt：注入世界观 + 角色扮演指导
+            string systemPrompt = $$"""
+{{GameLore}}
+
+你的任务：
+你现在需要完全扮演 NPC "{{npc.SurvivorName}}" 与玩家（管理者）对话。
+
+角色扮演指导：
+1. 说话要口语化，可以使用俚语、结巴、反问，带有情感，不需要过于严肃(例如不建议总是说"都世界末日了还想这些干嘛"，即使是世界末日，"人的特性"仍在)
+2. **状态驱动**：
+   - 如果压力 (Stress) > 70：语气要暴躁、神经质、多疑，或者因恐惧而颤抖。
+   - 如果饥饿 (Hunger) > 70：语气虚弱，或者因饥饿而愤怒，话题总是不自觉绕到食物上。
+   - 如果信任 (Trust) < 30：表现出冷漠、防备，甚至撒谎。
+3. **守住秘密**：如果你有秘密（Secret），不要直接说出来！要通过闪烁其词、转移话题或过度防御来暗示。
+4. **格式要求**：只返回 JSON，不要包含 Markdown 格式。
+JSON 格式：
+{
+    "NarrativeText": "你的口语回答（可包含动作描写，如：'他避开了你的视线...'）",
+    "StressDelta": 整数 (-10 ~ +10),
+    "TrustDelta": 整数 (-10 ~ +10),
+    "Mood": "情绪关键词 (如: Suspicious, Angry, Terrified, Grateful, Neutral)"
+}
+""";
+
+            // 2. 构建 User Prompt：注入动态数据
             string userPrompt = $"""
-            NPC信息：
-            - 姓名：{npc.SurvivorName}
-            - 角色：{npc.Role}
-            - 背景：{npc.Bio}
-            - 当前压力值：{npc.Stress}
-            - 当前信任度：{npc.Trust}
+当前 NPC 档案：
+- 姓名：{npc.SurvivorName}
+- 职业/角色：{npc.Role}
+- 核心性格/背景：{npc.Bio}
+- **不可告人的秘密**：{secretsInfo} (玩家不知道，你必须掩饰！)
 
-            玩家输入：{playerInput}
+当前状态：
+- 生命值：{npc.Hp}/100
+- 压力值：{npc.Stress}/100
+- 饥饿值：{npc.Hunger}/100
+- 对玩家信任度：{trustToPlayer}/100
 
-            根据NPC性格和状态，生成对话文本，返回JSON。
-            """;
+玩家说："{playerInput}"
+
+请生成回应。
+""";
 
             var requestBody = new
             {
@@ -469,14 +508,22 @@ namespace MasqueradeArk.Engine
 
         private void CallDeepSeekApiForSummary(GameState state, Action<string> callback)
         {
-            string prompt = $"""
-当前游戏状态：
-- 天数：{state.Day}
-- 幸存者数量：{state.GetAliveSurvivorCount()}
-- 物资：{state.Supplies}
-- 防御：{state.Defense}
+            string systemPrompt = $$"""
+{{GameLore}}
 
-请生成一段简短的日间摘要，描述营地当天的情况，不超过80字。语气压抑、现实。
+任务：写一段"管理者的日记摘要"。
+
+要求：
+- 语气：疲惫、冷峻、现实。
+- 不要写成流水账，要描写一个具体的细节（例如：窗外的风雪声、某个人的眼神、食物的短缺感）。
+- 结尾留下一丝悬念或不安。
+- 字数：80 字以内。
+""";
+
+            string userPrompt = $$"""
+当前状态：第 {{state.Day}} 天，幸存 {{state.GetAliveSurvivorCount()}} 人，物资 {{state.Supplies}}，防御 {{state.Defense}}。
+
+请生成日记摘要。
 """;
 
             var requestBody = new
@@ -484,8 +531,8 @@ namespace MasqueradeArk.Engine
                 model = Model,
                 messages = new[]
                 {
-                    new { role = "system", content = "你是一名《行尸走肉》风格的编剧。请根据提供的事件信息生成一段含蓄、压抑、现实的叙事文本，不超过100字。不要直接揭露真相，只提供线索和氛围描写。" },
-                    new { role = "user", content = prompt }
+                    new { role = "system", content = systemPrompt },
+                    new { role = "user", content = userPrompt }
                 },
                 max_tokens = 200,
                 temperature = 0.7
@@ -576,61 +623,86 @@ namespace MasqueradeArk.Engine
         /// </summary>
         private void CallDeepSeekApiForRandomEvent(GameState state, string eventHistorySummary, Action<string> callback)
         {
-            string systemPrompt = """
-            你是一个末日生存游戏的Game Master（DM）。根据当前游戏状态和历史事件，生成一个新的随机事件。
+            // 1. 找出压力最高和最饥饿的NPC作为潜在爆发点
+            Survivor mostStressed = null;
+            Survivor mostHungry = null;
+            int maxStress = -1;
+            int maxHunger = -1;
             
-            要求：
-            1. 事件应该具有戏剧性和趣味性
-            2. 事件应该与历史事件产生"蝴蝶效应"式的连锁关系
-            3. 事件应该多样化，不要重复之前的模式
-            4. 事件应该含蓄，不直接揭露真相，只提供线索
-            5. 语气压抑、现实、符合《行尸走肉》风格
-            6. 事件描述不超过100字
-            7. 必须返回JSON格式：
-            {
-                "EventType": "事件类型（Custom/SuppliesFound/Conflict/Discovery/ZombieAttack等）",
-                "Description": "事件描述文本",
-                "InvolvedNpcs": ["涉及的NPC名字数组，可以为空"],
-                "Effects": {
-                    "SuppliesDelta": 物资变化量（整数，可正可负）,
-                    "DefenseDelta": 防御变化量（整数）,
-                    "NpcEffects": [
-                        {
-                            "NpcName": "NPC名字",
-                            "HpDelta": 生命值变化,
-                            "StressDelta": 压力值变化,
-                            "TrustDelta": 信任度变化
-                        }
-                    ]
-                }
-            }
-            """;
-
-            // 构建NPC状态摘要
-            var npcSummary = new List<string>();
             foreach (var survivor in state.Survivors)
             {
                 if (survivor.Hp > 0)
                 {
-                    npcSummary.Add($"- {survivor.SurvivorName}（{survivor.Role}）：生命{survivor.Hp}，压力{survivor.Stress}，饥饿{survivor.Hunger}");
+                    if (survivor.Stress > maxStress)
+                    {
+                        maxStress = survivor.Stress;
+                        mostStressed = survivor;
+                    }
+                    if (survivor.Hunger > maxHunger)
+                    {
+                        maxHunger = survivor.Hunger;
+                        mostHungry = survivor;
+                    }
                 }
             }
+            
+            // 获取秘密信息
+            string stressedSecrets = mostStressed != null && mostStressed.Secrets.Length > 0
+                ? string.Join(", ", mostStressed.Secrets)
+                : "无";
+            string hungrySecrets = mostHungry != null && mostHungry.Secrets.Length > 0
+                ? string.Join(", ", mostHungry.Secrets)
+                : "无";
 
-            string userPrompt = $"""
-            当前游戏状态：
-            - 天数：第 {state.Day} 天
-            - 幸存者数量：{state.GetAliveSurvivorCount()} 人
-            - 物资：{state.Supplies} 单位
-            - 防御：{state.Defense}
+            // 2. 构建 System Prompt
+            string systemPrompt = $$"""
+{{GameLore}}
 
-            幸存者状态：
-            {string.Join("\n", npcSummary)}
+你的任务：
+作为游戏的"导演 (Game Master)"，生成一个突发的随机事件。
 
-            历史事件摘要：
-            {(string.IsNullOrEmpty(eventHistorySummary) ? "（暂无历史事件）" : eventHistorySummary)}
+设计原则：
+1. **蝴蝶效应**：不要凭空生成事件。请观察 NPC 当前的状态（尤其是高压力、高饥饿的 NPC），让事件成为他们状态恶化的后果。
+   - *例子*：如果 Tom 压力高 -> Tom 梦游打翻了煤油灯 -> 火灾导致物资损失。
+2. **戏剧性与多样性**：
+   - 包含：心理崩溃、物资事故、社交冲突、外部入侵、设施故障、发现秘密。
+   - 避免：单调的"发现物资"或"被丧尸攻击"。
+3. **结果导向**：事件必须对游戏数值产生实际影响。
 
-            请基于以上信息生成一个新的随机事件，要求具有连锁性、多样性和戏剧性。返回JSON格式。
-            """;
+JSON 格式要求（严禁 Markdown）：
+{
+    "EventType": "事件类型 (Crisis/Conflict/Accident/Atmosphere)",
+    "Description": "一段 80-120 字的事件描述。侧重描写氛围、声音和角色的反应。",
+    "InvolvedNpcs": ["涉及的 NPC 名字"],
+    "Effects": {
+        "SuppliesDelta": 整数,
+        "DefenseDelta": 整数,
+        "NpcEffects": [
+            { "NpcName": "名字", "HpDelta": 0, "StressDelta": 0, "TrustDelta": 0 }
+        ]
+    }
+}
+""";
+
+            // 3. 构建 User Prompt
+            string userPrompt = $$"""
+当前游戏局势：
+- 天数：第 {{state.Day}} 天
+- 环境：暴雪肆虐，物资剩余 {{state.Supplies}} {{(state.Supplies < 5 ? "(极度紧缺！)" : "")}}
+- 防御：{{state.Defense}}
+
+重点关注的 NPC (潜在爆发点)：
+- 压力最高者：{{mostStressed?.SurvivorName ?? "无"}} (Stress: {{mostStressed?.Stress ?? 0}}, Secret: {{stressedSecrets}})
+- 最饥饿者：{{mostHungry?.SurvivorName ?? "无"}} (Hunger: {{mostHungry?.Hunger ?? 0}}, Secret: {{hungrySecrets}})
+
+最近发生的历史事件（请确保新事件与此有一定连贯性）：
+{{(string.IsNullOrEmpty(eventHistorySummary) ? "无" : eventHistorySummary)}}
+
+请生成一个新的、具有冲击力的事件。
+""";
+
+            // NPC状态摘要已经在userPrompt中通过mostStressed和mostHungry传递
+            // 不再需要单独的npcSummary列表
 
             var requestBody = new
             {

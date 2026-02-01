@@ -310,7 +310,7 @@ namespace MasqueradeArk.Engine
         {
             // LLM生成随机事件（低概率，优先级最高）
             // 注意：这是异步调用，不会阻塞主流程
-            if (_llmClient != null && _llmClient.Enabled && _rng.Randf() < GameConstants.RANDOM_EVENT_CHANCE * 0.5f)
+            if (_llmClient != null && _llmClient.Enabled)
             {
                 GD.Print("[SimulationEngine] 触发LLM随机事件生成");
                 // 异步调用，不阻塞

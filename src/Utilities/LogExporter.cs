@@ -39,7 +39,7 @@ namespace MasqueradeArk.Utilities
                 }
 
                 System.IO.File.WriteAllText(actualPath, sb.ToString(), Encoding.UTF8);
-                GD.Print($"事件日志已导出到: {filePath} (实际路径: {actualPath})");
+                GD.Print($"事件日志已导出到: {filePath} (实际路径: \"{actualPath}\")");
                 return true;
             }
             catch (Exception e)
@@ -96,7 +96,7 @@ namespace MasqueradeArk.Utilities
 
                 System.IO.File.WriteAllText(actualPath, jsonString, Encoding.UTF8);
 
-                GD.Print($"事件日志(JSON)已导出到: {filePath} (实际路径: {actualPath})");
+                GD.Print($"事件日志(JSON)已导出到: {filePath} (实际路径: \"{actualPath}\")");
                 return true;
             }
             catch (Exception e)
@@ -128,7 +128,7 @@ namespace MasqueradeArk.Utilities
                 }
 
                 System.IO.File.WriteAllText(actualPath, summary, Encoding.UTF8);
-                GD.Print($"游戏摘要已导出到: {filePath} (实际路径: {actualPath})");
+                GD.Print($"游戏摘要已导出到: {filePath} (实际路径: \"{actualPath}\")");
                 return true;
             }
             catch (Exception e)

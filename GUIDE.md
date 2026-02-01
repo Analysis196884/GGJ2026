@@ -1,8 +1,10 @@
-# Project Masquerade Ark – Development Guide (Godot 4.x / C#)
+# Project Masquerade Ark – Development Guide
 
-**Project Masquerade Ark** 是一个由 **LLM 驱动的叙事型生存 / 推理悬疑游戏原型**。
-游戏背景为 **暴雪山庄模式的丧尸末日**，整体风格参考《The Walking Dead》。
-为了简单起见，先以文字形式作为表现方式实现核心玩法，实现最小可行产品（MVP）。
+**Project Masquerade Ark** 是一个 LLM 驱动的生存与推理悬疑游戏:
+
+在丧尸末日的暴雪封锁中，玩家作为避难所的管理者，领导 6–7 名幸存者在资源匮乏、信任崩塌的环境下求生。幸存者各自戴着面具，隐藏着秘密与动机，而真正的威胁往往来自屋内。
+
+通过生存管理、社会关系判断与 LLM 动态生成的剧情线索，玩家必须在怀疑与信任之间做出抉择，决定避难所的命运。
 
 技术栈说明：
 
