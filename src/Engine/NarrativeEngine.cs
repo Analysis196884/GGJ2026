@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Text.Json;
 using MasqueradeArk.Core;
+using MasqueradeArk.Utilities;
 
 namespace MasqueradeArk.Engine
 {
@@ -324,7 +325,7 @@ namespace MasqueradeArk.Engine
         /// </summary>
         public void ProcessPlayerInteraction(Survivor npc, string playerInput, Action<NarrativeActionResponse> callback)
         {
-            GD.Print($"[NarrativeEngine] ProcessPlayerInteraction 开始: {npc.SurvivorName}, 输入: {playerInput}");
+            GD.Print($"[NarrativeEngine] 用户对 {npc.SurvivorName} 说：{playerInput}");
             // 检查是否为命令（以"/"开头）
             if (playerInput.StartsWith("/"))
             {
@@ -349,7 +350,6 @@ namespace MasqueradeArk.Engine
                     // 应用数值变化
                     ApplyInteractionChanges(npc, response);
 
-                    GD.Print($"[NarrativeEngine] 交互处理完成: {response}");
                     callback(response);
                 }
                 catch (Exception ex)
@@ -390,10 +390,10 @@ namespace MasqueradeArk.Engine
             npc.Stress += response.StressDelta;
             npc.Stress = Mathf.Clamp(npc.Stress, 0, 100);
 
-            // 修改信任度（使用Player作为键）
-            npc.ModifyTrust("Player", response.TrustDelta);
+            // 修改信任度（使用GameConstants.PLAYER_NAME作为键）
+            npc.ModifyTrust(GameConstants.PLAYER_NAME, response.TrustDelta);
 
-            GD.Print($"[NarrativeEngine] 应用交互变化 - {npc.SurvivorName}: Stress {npc.Stress - response.StressDelta} -> {npc.Stress}, Trust {npc.GetTrust("Player") - response.TrustDelta} -> {npc.GetTrust("Player")}");
+            GD.Print($"[NarrativeEngine] 应用交互变化 - {npc.SurvivorName}: Stress {npc.Stress - response.StressDelta} -> {npc.Stress}, Trust {npc.GetTrust(GameConstants.PLAYER_NAME) - response.TrustDelta} -> {npc.GetTrust(GameConstants.PLAYER_NAME)}");
         }
 
         /// <summary>

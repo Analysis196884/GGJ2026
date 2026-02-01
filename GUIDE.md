@@ -282,7 +282,7 @@ Narrative Engine 返回结构化结果：
     * Name
     * HP Bar
     * Stress Bar
-    * Suspicion Bar
+    * Trust Bar
   * Debug 模式下显示 NPC 秘密
 
 * **主区域**

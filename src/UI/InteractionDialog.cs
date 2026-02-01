@@ -217,7 +217,6 @@ namespace MasqueradeArk.UI
 
         private void OnSendPressed()
         {
-            GD.Print("[InteractionDialog] OnSendPressed 被调用");
             if (_currentNPC == null || _narrativeEngine == null || PlayerInput == null || SendButton == null)
             {
                 GD.PrintErr($"[InteractionDialog] 条件不满足: _currentNPC={_currentNPC}, _narrativeEngine={_narrativeEngine}, PlayerInput={PlayerInput}, SendButton={SendButton}");
@@ -260,7 +259,6 @@ namespace MasqueradeArk.UI
         /// </summary>
         private void OnTextSubmitted(string text)
         {
-            GD.Print("[InteractionDialog] OnTextSubmitted 被调用");
             OnSendPressed();
         }
 

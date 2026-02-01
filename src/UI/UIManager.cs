@@ -634,7 +634,7 @@ namespace MasqueradeArk.UI
 		/// </summary>
 		public void ShowInteractionDialog(Survivor npc)
 		{
-			GD.Print($"[UIManager] 显示交互对话框给 {npc.SurvivorName}");
+			GD.Print($"[UIManager] 显示与 {npc.SurvivorName} 的交互对话框");
 			// 暂停游戏事件系统
 			var gm = GetGameManager();
 			gm?.PauseGame();
@@ -661,9 +661,16 @@ namespace MasqueradeArk.UI
 			// 恢复游戏事件系统
 			var gm = GetGameManager();
 			gm?.ResumeGame();
-			// 更新 UI 以反映数值变化
-			// （因为 NarrativeEngine 已经应用了变化，只需刷新卡片）
-			// 注意：UIManager.UpdateUI 将在下次游戏循环时被调用
+			// 立即更新 UI 以反映数值变化
+			// （因为 NarrativeEngine 已经应用了变化到 Survivor 对象，需要刷新卡片显示）
+			if (gm != null)
+			{
+				var gameState = gm.GetGameState();
+				if (gameState != null)
+				{
+					UpdateUI(gameState);
+				}
+			}
 		}
 	}
 }

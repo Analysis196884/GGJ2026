@@ -82,8 +82,9 @@ namespace MasqueradeArk.Manager
 
 			_narrativeEngine = new NarrativeEngine();
 			AddChild(_narrativeEngine);
-			// 显式设置 LLMClient 给 NarrativeEngine
+			// 显式设置 LLMClient 给 NarrativeEngine 和 SimulationEngine
 			_narrativeEngine.SetLLMClient(_llmClient);
+			_simulationEngine.SetLLMClient(_llmClient);
 
 			// 初始化新的管理器
 			_locationManager = new LocationManager();
@@ -626,7 +627,6 @@ namespace MasqueradeArk.Manager
 		/// </summary>
 		private void OnPlayerInputSubmitted(string input)
 		{
-			GD.Print($"玩家输入：{input}");
 			_uiManager.AppendLog($"> {input}");
 
 			// 只有以"/"开头的文本会被识别为命令
@@ -883,7 +883,7 @@ namespace MasqueradeArk.Manager
 			if (_logExporter != null && _gameState != null)
 			{
 				_logExporter.ExportLogsToFile(_gameState);
-				_logExporter.ExportLogsToJson(_gameState);
+				// _logExporter.ExportLogsToJson(_gameState);
 				_logExporter.ExportGameSummary(_gameState);
 				_uiManager?.AppendLog("日志已导出到用户数据目录");
 			}
@@ -944,7 +944,6 @@ namespace MasqueradeArk.Manager
 		/// </summary>
 		private void OnSurvivorCardClicked(Survivor survivor)
 		{
-			GD.Print($"[GameManager] 幸存者卡片被点击: {survivor.SurvivorName}");
 			// 显示交互对话框
 			_uiManager?.ShowInteractionDialog(survivor);
 		}

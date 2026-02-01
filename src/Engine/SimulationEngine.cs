@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using MasqueradeArk.Core;
 using MasqueradeArk.Utilities;
 
@@ -16,10 +17,21 @@ namespace MasqueradeArk.Engine
         
         // 日志回调 - 用于同步日志到 UI
         public Action<string>? LogCallback { get; set; }
+        
+        // LLM客户端引用 - 用于生成随机事件
+        private LLMClient _llmClient;
 
         public SimulationEngine()
         {
             _rng.Randomize();
+        }
+        
+        /// <summary>
+        /// 设置LLM客户端（由GameManager调用）
+        /// </summary>
+        public void SetLLMClient(LLMClient client)
+        {
+            _llmClient = client;
         }
 
         /// <summary>
@@ -296,6 +308,23 @@ namespace MasqueradeArk.Engine
         /// </summary>
         private void ProcessRandomEvents(GameState state, List<GameEvent> events)
         {
+            // LLM生成随机事件（低概率，优先级最高）
+            // 注意：这是异步调用，不会阻塞主流程
+            if (_llmClient != null && _llmClient.Enabled && _rng.Randf() < GameConstants.RANDOM_EVENT_CHANCE * 0.5f)
+            {
+                GD.Print("[SimulationEngine] 触发LLM随机事件生成");
+                // 异步调用，不阻塞
+                GenerateRandomEventUsingLLM(state, (llmEvent) =>
+                {
+                    if (llmEvent != null)
+                    {
+                        // 将事件添加到日志
+                        state.AppendLog(llmEvent.Description);
+                        GD.Print($"[SimulationEngine] LLM随机事件已添加到日志: {llmEvent.Description}");
+                    }
+                });
+            }
+
             // 基础随机事件概率
             if (_rng.Randf() < GameConstants.RANDOM_EVENT_CHANCE)
             {
@@ -618,6 +647,181 @@ namespace MasqueradeArk.Engine
             }
             
             return mostStressed;
+        }
+
+        /// <summary>
+        /// 使用LLM生成随机事件（异步回调版本）
+        /// </summary>
+        public void GenerateRandomEventUsingLLM(GameState state, Action<GameEvent> callback)
+        {
+            if (_llmClient == null || !_llmClient.Enabled)
+            {
+                GD.Print("[SimulationEngine] LLM客户端未启用，跳过LLM随机事件生成");
+                callback(null);
+                return;
+            }
+
+            // 生成历史事件摘要（用于上下文管理）
+            string eventHistorySummary = GenerateEventHistorySummary(state);
+
+            GD.Print("[SimulationEngine] 调用LLM生成随机事件");
+            _llmClient.GenerateRandomEvent(state, eventHistorySummary, (jsonResponse) =>
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(jsonResponse))
+                    {
+                        GD.Print("[SimulationEngine] LLM返回空响应");
+                        callback(null);
+                        return;
+                    }
+
+                    GD.Print($"[SimulationEngine] 解析LLM随机事件JSON: {jsonResponse}");
+                    
+                    // 解析JSON
+                    using JsonDocument doc = JsonDocument.Parse(jsonResponse);
+                    var root = doc.RootElement;
+
+                    // 提取事件信息
+                    string eventTypeStr = root.GetProperty("EventType").GetString() ?? "Custom";
+                    string description = root.GetProperty("Description").GetString() ?? "发生了一些事情。";
+
+                    // 解析事件类型
+                    GameEvent.EventType eventType = GameEvent.EventType.Custom;
+                    if (Enum.TryParse<GameEvent.EventType>(eventTypeStr, out var parsedType))
+                    {
+                        eventType = parsedType;
+                    }
+
+                    // 创建事件
+                    var gameEvent = new GameEvent(eventType, state.Day, description);
+
+                    // 添加涉及的NPC
+                    if (root.TryGetProperty("InvolvedNpcs", out var involvedNpcs))
+                    {
+                        foreach (var npcElement in involvedNpcs.EnumerateArray())
+                        {
+                            string npcName = npcElement.GetString();
+                            if (!string.IsNullOrEmpty(npcName))
+                            {
+                                gameEvent.AddInvolvedNpc(npcName);
+                            }
+                        }
+                    }
+
+                    // 应用效果
+                    if (root.TryGetProperty("Effects", out var effects))
+                    {
+                        ApplyLLMEventEffects(state, effects, gameEvent);
+                    }
+
+                    GD.Print($"[SimulationEngine] LLM随机事件生成成功: {gameEvent.Description}");
+                    callback(gameEvent);
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"[SimulationEngine] 解析LLM随机事件失败: {ex.Message}");
+                    callback(null);
+                }
+            });
+        }
+
+        /// <summary>
+        /// 应用LLM生成的事件效果
+        /// </summary>
+        private void ApplyLLMEventEffects(GameState state, JsonElement effects, GameEvent gameEvent)
+        {
+            // 应用物资变化
+            if (effects.TryGetProperty("SuppliesDelta", out var suppliesDelta))
+            {
+                int delta = suppliesDelta.GetInt32();
+                state.Supplies += delta;
+                state.Supplies = Math.Max(0, state.Supplies);
+                if (delta != 0)
+                {
+                    gameEvent.SetContextValue("SuppliesDelta", delta);
+                    GD.Print($"[SimulationEngine] 物资变化: {delta}");
+                }
+            }
+
+            // 应用防御变化
+            if (effects.TryGetProperty("DefenseDelta", out var defenseDelta))
+            {
+                int delta = defenseDelta.GetInt32();
+                state.Defense += delta;
+                state.Defense = Math.Max(0, state.Defense);
+                if (delta != 0)
+                {
+                    gameEvent.SetContextValue("DefenseDelta", delta);
+                    GD.Print($"[SimulationEngine] 防御变化: {delta}");
+                }
+            }
+
+            // 应用NPC效果
+            if (effects.TryGetProperty("NpcEffects", out var npcEffects))
+            {
+                foreach (var npcEffect in npcEffects.EnumerateArray())
+                {
+                    if (npcEffect.TryGetProperty("NpcName", out var npcNameElement))
+                    {
+                        string npcName = npcNameElement.GetString();
+                        var survivor = state.GetSurvivor(npcName);
+                        if (survivor != null && survivor.Hp > 0)
+                        {
+                            // 应用生命值变化
+                            if (npcEffect.TryGetProperty("HpDelta", out var hpDelta))
+                            {
+                                int delta = hpDelta.GetInt32();
+                                survivor.Hp += delta;
+                                GD.Print($"[SimulationEngine] {npcName} 生命值变化: {delta}");
+                            }
+
+                            // 应用压力值变化
+                            if (npcEffect.TryGetProperty("StressDelta", out var stressDelta))
+                            {
+                                int delta = stressDelta.GetInt32();
+                                survivor.Stress += delta;
+                                GD.Print($"[SimulationEngine] {npcName} 压力值变化: {delta}");
+                            }
+
+                            // 应用信任度变化
+                            if (npcEffect.TryGetProperty("TrustDelta", out var trustDelta))
+                            {
+                                int delta = trustDelta.GetInt32();
+                                survivor.ModifyTrust(GameConstants.PLAYER_NAME, delta);
+                                GD.Print($"[SimulationEngine] {npcName} 对玩家信任度变化: {delta}");
+                            }
+
+                            // 约束数值范围
+                            survivor.ClampValues();
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 生成历史事件摘要（用于LLM上下文）
+        /// </summary>
+        private string GenerateEventHistorySummary(GameState state)
+        {
+            // 获取最近的事件日志
+            var recentLogs = state.GetRecentLogs(10);
+            if (recentLogs.Length == 0)
+            {
+                return "（暂无历史事件）";
+            }
+
+            // 简化事件描述，只保留关键信息
+            var summary = new List<string>();
+            foreach (var log in recentLogs)
+            {
+                // 移除日期标记，保留核心描述
+                string simplified = log.Replace("[Day ", "D").Replace("]", ":");
+                summary.Add(simplified);
+            }
+
+            return string.Join("\n", summary);
         }
     }
 }

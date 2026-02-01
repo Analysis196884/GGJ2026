@@ -7,30 +7,30 @@
 │                    Godot 4.x Engine                     │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │            UI 层 (UIManager)                     │  │
-│  │  - 侧边栏 (Status + NPC Cards)                   │  │
-│  │  - 主区域 (Narrative + Actions)                 │  │
-│  │  - 选择按钮 (Dynamic Choices)                   │  │
-│  └──────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │            UI 层 (UIManager)                     │   │
+│  │  - 侧边栏 (Status + NPC Cards)                   │   │
+│  │  - 主区域 (Narrative + Actions)                  │   │
+│  │  - 选择按钮 (Dynamic Choices)                    │   │
+│  └──────────────────────────────────────────────────┘   │
 │                        ↑                                │
-│                      信号                              │
+│                      信号                               │
 │                        ↓                                │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │        管理层 (GameManager)                      │  │
-│  │  - 协调所有系统                                  │  │
-│  │  - 管理游戏流程                                  │  │
-│  │  - 处理用户输入                                  │  │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │        管理层 (GameManager)                      │   │
+│  │  - 协调所有系统                                  │   │
+│  │  - 管理游戏流程                                  │   │
+│  │  - 处理用户输入                                  │   │
 │  └──────────────────────────────────────────────────┘  │
-│           ↓              ↓              ↓               │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐   │
-│  │ 模拟引擎     │ │ 叙事引擎     │ │ 数据层       │   │
-│  │(Simulation)  │ │(Narrative)   │ │(Resources)   │   │
-│  └──────────────┘ └──────────────┘ └──────────────┘   │
-│                                                         │
-│  数值规则  →  事件生成  →  文本转化  →  UI 显示       │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+│           ↓              ↓              ↓              │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐    │
+│  │ 模拟引擎     │ │ 叙事引擎      │ │ 数据层        │    │
+│  │(Simulation)  │ │(Narrative)   │ │(Resources)   │    │
+│  └──────────────┘ └──────────────┘ └──────────────┘    │
+│                                                        │
+│  数值规则  →  事件生成  →  文本转化  →  UI 显示          │
+│                                                        │
+└────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -58,7 +58,7 @@ GameState
   │   ├── string: SurvivorName
   │   ├── string: Role
   │   ├── int: Hp, Hunger, Stamina
-  │   ├── int: Stress, Integrity, Suspicion
+  │   ├── int: Stress, Integrity, Trust
   │   ├── string[]: Secrets
   │   └── Dict<string, int>: Relationships
   ├── int: Day, Supplies, Defense
@@ -83,53 +83,6 @@ GameEvent
 - 状态更新：`UpdateSurvivorState()`
 - 秘密事件：`ProcessMasqueradeEvents()`
 
-**核心算法**：
-
-#### 物资消耗规则
-```csharp
-if (state.Supplies > 0)
-{
-    state.Supplies -= survivor_count;
-    // 所有 NPC: hunger = 0
-}
-else
-{
-    // 所有 NPC: hunger += 20, stress += 10
-}
-```
-
-#### 状态恶化规则
-```csharp
-if (survivor.Hunger > 80)
-{
-    survivor.Hp -= 10;
-    survivor.Stress += 15;
-}
-
-if (survivor.Stress > 80)
-{
-    if (Random() < 0.3f)  // 30% 概率
-        TriggerMentalBreakdown();
-}
-```
-
-#### 秘密判定规则
-```csharp
-// 偷窃判定
-float theft_chance = hunger * 0.5f;
-if (integrity < 0) theft_chance += 0.3f;
-
-// 感染恶化
-if (HasSecret("Infected"))
-{
-    hp -= 5;
-    if (Random() < 0.2f)  // 20% 概率
-        suspicion += Random(5, 15);
-}
-```
-
-**返回值**：`List<GameEvent>`
-
 ---
 
 ### 3. 叙事层（Narrative Engine）
@@ -141,37 +94,8 @@ if (HasSecret("Infected"))
 - 日间摘要：`GenerateDaySummary(GameState)`
 - 游戏结局：`GenerateEndingNarrative(GameState, bool victory)`
 
-**处理流程**：
-
-```csharp
-public NarrativeResult GenerateEventNarrative(GameEvent evt, GameState state)
-{
-    switch (evt.Type)
-    {
-        case EventType.SuppliesStolen:
-            // 隐藏真凶，仅暗示线索
-            return new NarrativeResult
-            {
-                NarrativeText = "物资库存不符。没有人承认。每个人的眼神都躲躲闪闪。",
-                Choices = ["继续调查", "保持警惕", "试图推理"]
-            };
-        
-        case EventType.InfectionDetected:
-            // 暗示异常
-            return new NarrativeResult
-            {
-                NarrativeText = $"{npc.Name} 在夜里咳嗽个不停。那声音...听起来不太对劲。",
-                Choices = ["质问此人", "私下交谈", "装作未察觉"]
-            };
-        
-        // ... 更多事件类型
-    }
-}
-```
-
 **特点**：
-- 模板化生成（当前实现）
-- 预留 LLM API 集成点
+- 模板化生成 + LLM API 集成
 - 隐藏真相，仅暗示线索
 - 营造紧张压抑氛围
 
@@ -221,7 +145,7 @@ Main (Control)
 │ [秘密] (调试模式)    │
 │ HP:    ████░░░░░░   │
 │ Stress:░░░░░░░░░░   │
-│ Suspic:░░░░░░░░░░   │
+│ Trust :░░░░░░░░░░   │
 │ Hunger:░░░░░░░░░░   │
 └─────────────────────┘
 ```
@@ -275,8 +199,8 @@ Main (Control)
                    ↓
     ┌──────────────────────────────────┐
     │ GameManager.CheckGameOver()      │
-    │ - 全员死亡? → 失败               │
-    │ - 生存30天? → 胜利               │
+    │ - 全员死亡? → 失败                │
+    │ - 生存30天? → 胜利                │
     └──────────────────────────────────┘
 ```
 
@@ -350,7 +274,6 @@ Day 2:
     - Lisa: HasSecret("Infected")
       → Hp: 100 → 95
       → Random(0, 1) = 0.15 < 0.2? YES
-      → Suspicion: 10 → 18
       → Event: InfectionDetected
 
 Events Generated:
@@ -382,33 +305,6 @@ UI 更新:
 ## 常数与规则
 
 详见 [`src/Utilities/GameConstants.cs`](src/Utilities/GameConstants.cs)
-
-**关键参数**：
-
-```csharp
-// 物资规则
-const int SUPPLIES_PER_SURVIVOR = 1;
-
-// 饥饿恶化
-const int STARVATION_HUNGER_THRESHOLD = 80;
-const int STARVATION_HP_LOSS = 10;
-
-// 精神崩溃
-const int MENTAL_BREAKDOWN_STRESS_THRESHOLD = 80;
-const float MENTAL_BREAKDOWN_PROBABILITY = 0.3f;
-
-// 感染
-const int INFECTION_HP_LOSS_PER_DAY = 5;
-const float INFECTION_DISCOVERY_PROBABILITY = 0.2f;
-
-// 偷窃
-const float THEFT_BASE_PROBABILITY_MULTIPLIER = 0.5f;
-const float THEFT_INTEGRITY_BONUS = 0.3f;
-
-// 游戏流程
-const int VICTORY_DAY_THRESHOLD = 30;
-const int INITIAL_SUPPLIES = 50;
-```
 
 ---
 
@@ -449,6 +345,14 @@ public enum EventType
 }
 ```
 
+**考虑LLM生成随机事件**：
+```csharp
+private GameEvent GenerateRandomEvent(GameState state)
+{
+    ... // 生成逻辑
+}
+```
+
 ### 3. 新增 NPC 角色
 
 修改 `GameState.Initialize()`：
@@ -458,6 +362,8 @@ var psychologist = new Survivor("James", "Psychologist", "心理学家...");
 psychologist.SetTrust("Player", 45);
 Survivors.Add(psychologist);
 ```
+
+(是否考虑在游戏过程中动态生成/增加 NPC？)
 
 ### 4. 自定义游戏规则
 
@@ -483,51 +389,13 @@ private void ProcessCustomRule(GameState state, Survivor survivor)
 
 ---
 
-## 测试策略
+## 图形化界面
 
-### 单元测试
-
-```csharp
-// SimulationEngine 测试
-[Test]
-public void Test_PhysicalDeterioratesWithHunger()
-{
-    var survivor = new Survivor("Test", "Test", "");
-    survivor.Hunger = 85;
-    
-    var engine = new SimulationEngine();
-    engine.UpdateSurvivorState(gameState, survivor, new List<GameEvent>());
-    
-    Assert.Less(survivor.Hp, 100);
-}
-
-// NarrativeEngine 测试
-[Test]
-public void Test_NarrativeVariesWithEventType()
-{
-    var engine = new NarrativeEngine();
-    var evt1 = new GameEvent(GameEvent.EventType.SuppliesStolen, 1, "");
-    var evt2 = new GameEvent(GameEvent.EventType.Starvation, 1, "");
-    
-    var result1 = engine.GenerateEventNarrative(evt1, gameState);
-    var result2 = engine.GenerateEventNarrative(evt2, gameState);
-    
-    Assert.AreNotEqual(result1.NarrativeText, result2.NarrativeText);
-}
-```
-
----
-
-## 已知限制与 TODO
-
-- [ ] LLM 集成（当前为模板）
-- [ ] 音效与音乐
-- [ ] 美术资源
-- [ ] 存档系统完善
-- [ ] 网络多人（未规划）
-- [ ] 翻译系统（当前仅中文）
-
----
+当前游戏界面简洁，以文本/Button 为主。未来可考虑：
+- 添加图标/头像
+- 动画效果
+- 事件触发音效
+- 加入插图（传统方式/大模型生成）
 
 **最后更新**：2026-01-29
-**架构版本**：v1.0
+**最新版本**：v0.0

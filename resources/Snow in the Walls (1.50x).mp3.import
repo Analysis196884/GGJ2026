@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/Snow in the Walls (1.50x).mp3-4fe4b184e7dad77
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0.0
 bpm=0.0
 beat_count=0

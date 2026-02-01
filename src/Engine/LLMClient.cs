@@ -546,5 +546,179 @@ namespace MasqueradeArk.Engine
                 callback($"第 {state.Day} 天。幸存者 {state.GetAliveSurvivorCount()} 人，物资 {state.Supplies} 单位。");
             }
         }
+
+        /// <summary>
+        /// 生成LLM驱动的随机事件（回调版本）
+        /// </summary>
+        public void GenerateRandomEvent(GameState state, string eventHistorySummary, Action<string> callback)
+        {
+            if (!Enabled)
+            {
+                GD.Print($"[LLMClient] LLM 未启用，返回空字符串");
+                callback("");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(ApiKey))
+            {
+                GD.Print($"[LLMClient] 模拟模式，生成模拟随机事件");
+                callback(GenerateSimulatedRandomEvent(state));
+                return;
+            }
+
+            // 真实 API 调用
+            GD.Print($"[LLMClient] 调用真实 API 生成随机事件");
+            CallDeepSeekApiForRandomEvent(state, eventHistorySummary, callback);
+        }
+
+        /// <summary>
+        /// 调用DeepSeek API生成随机事件
+        /// </summary>
+        private void CallDeepSeekApiForRandomEvent(GameState state, string eventHistorySummary, Action<string> callback)
+        {
+            string systemPrompt = """
+            你是一个末日生存游戏的Game Master（DM）。根据当前游戏状态和历史事件，生成一个新的随机事件。
+            
+            要求：
+            1. 事件应该具有戏剧性和趣味性
+            2. 事件应该与历史事件产生"蝴蝶效应"式的连锁关系
+            3. 事件应该多样化，不要重复之前的模式
+            4. 事件应该含蓄，不直接揭露真相，只提供线索
+            5. 语气压抑、现实、符合《行尸走肉》风格
+            6. 事件描述不超过100字
+            7. 必须返回JSON格式：
+            {
+                "EventType": "事件类型（Custom/SuppliesFound/Conflict/Discovery/ZombieAttack等）",
+                "Description": "事件描述文本",
+                "InvolvedNpcs": ["涉及的NPC名字数组，可以为空"],
+                "Effects": {
+                    "SuppliesDelta": 物资变化量（整数，可正可负）,
+                    "DefenseDelta": 防御变化量（整数）,
+                    "NpcEffects": [
+                        {
+                            "NpcName": "NPC名字",
+                            "HpDelta": 生命值变化,
+                            "StressDelta": 压力值变化,
+                            "TrustDelta": 信任度变化
+                        }
+                    ]
+                }
+            }
+            """;
+
+            // 构建NPC状态摘要
+            var npcSummary = new List<string>();
+            foreach (var survivor in state.Survivors)
+            {
+                if (survivor.Hp > 0)
+                {
+                    npcSummary.Add($"- {survivor.SurvivorName}（{survivor.Role}）：生命{survivor.Hp}，压力{survivor.Stress}，饥饿{survivor.Hunger}");
+                }
+            }
+
+            string userPrompt = $"""
+            当前游戏状态：
+            - 天数：第 {state.Day} 天
+            - 幸存者数量：{state.GetAliveSurvivorCount()} 人
+            - 物资：{state.Supplies} 单位
+            - 防御：{state.Defense}
+
+            幸存者状态：
+            {string.Join("\n", npcSummary)}
+
+            历史事件摘要：
+            {(string.IsNullOrEmpty(eventHistorySummary) ? "（暂无历史事件）" : eventHistorySummary)}
+
+            请基于以上信息生成一个新的随机事件，要求具有连锁性、多样性和戏剧性。返回JSON格式。
+            """;
+
+            var requestBody = new
+            {
+                model = Model,
+                messages = new[]
+                {
+                    new { role = "system", content = systemPrompt },
+                    new { role = "user", content = userPrompt }
+                },
+                max_tokens = 500,
+                temperature = 0.9  // 更高的温度以增加随机性和创意性
+            };
+
+            string jsonBody = JsonSerializer.Serialize(requestBody);
+            var headers = new string[]
+            {
+                "Authorization: Bearer " + ApiKey,
+                "Content-Type: application/json"
+            };
+
+            void OnRequestCompleted(long result, long responseCode, string[] headers, byte[] body)
+            {
+                _httpRequest.RequestCompleted -= OnRequestCompleted;
+
+                if (result != (long)HttpRequest.Result.Success)
+                {
+                    GD.Print("[LLMClient] 随机事件请求失败，使用模拟事件");
+                    callback(GenerateSimulatedRandomEvent(state));
+                    return;
+                }
+
+                if (responseCode != 200)
+                {
+                    GD.PrintErr($"[LLM API Error] {responseCode}: {System.Text.Encoding.UTF8.GetString(body)}");
+                    callback(GenerateSimulatedRandomEvent(state));
+                    return;
+                }
+
+                try
+                {
+                    string responseBody = System.Text.Encoding.UTF8.GetString(body);
+                    using JsonDocument doc = JsonDocument.Parse(responseBody);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                    {
+                        string content = choices[0].GetProperty("message").GetProperty("content").GetString()?.Trim() ?? "";
+                        // 清理可能的Markdown标记
+                        content = CleanJson(content);
+                        GD.Print($"[LLMClient] 生成的随机事件JSON: {content}");
+                        callback(content);
+                    }
+                    else
+                    {
+                        GD.Print("[LLMClient] 无随机事件响应，使用模拟事件");
+                        callback(GenerateSimulatedRandomEvent(state));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"[LLMClient] 解析随机事件响应异常: {ex.Message}");
+                    callback(GenerateSimulatedRandomEvent(state));
+                }
+            }
+
+            _httpRequest.RequestCompleted += OnRequestCompleted;
+            Error error = _httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
+
+            if (error != Error.Ok)
+            {
+                GD.PrintErr($"[LLMClient] 随机事件请求失败: {error}");
+                callback(GenerateSimulatedRandomEvent(state));
+            }
+        }
+
+        /// <summary>
+        /// 生成模拟随机事件JSON
+        /// </summary>
+        private string GenerateSimulatedRandomEvent(GameState state)
+        {
+            var events = new[]
+            {
+                "{\"EventType\":\"Discovery\",\"Description\":\"在废墟中发现了一些旧物资。\",\"InvolvedNpcs\":[],\"Effects\":{\"SuppliesDelta\":3,\"DefenseDelta\":0,\"NpcEffects\":[]}}",
+                "{\"EventType\":\"Conflict\",\"Description\":\"团队内部发生了争吵。\",\"InvolvedNpcs\":[],\"Effects\":{\"SuppliesDelta\":0,\"DefenseDelta\":0,\"NpcEffects\":[]}}",
+                "{\"EventType\":\"Custom\",\"Description\":\"远处传来了奇怪的声音。\",\"InvolvedNpcs\":[],\"Effects\":{\"SuppliesDelta\":0,\"DefenseDelta\":0,\"NpcEffects\":[]}}",
+                "{\"EventType\":\"ZombieAttack\",\"Description\":\"丧尸在夜里靠近了庇护所。\",\"InvolvedNpcs\":[],\"Effects\":{\"SuppliesDelta\":0,\"DefenseDelta\":-3,\"NpcEffects\":[]}}",
+                "{\"EventType\":\"Custom\",\"Description\":\"有人在做噩梦，整晚都在尖叫。\",\"InvolvedNpcs\":[],\"Effects\":{\"SuppliesDelta\":0,\"DefenseDelta\":0,\"NpcEffects\":[]}}"
+            };
+            return events[_rng.Randi() % events.Length];
+        }
     }
 }

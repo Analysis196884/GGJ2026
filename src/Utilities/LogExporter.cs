@@ -18,7 +18,7 @@ namespace MasqueradeArk.Utilities
                 if (string.IsNullOrEmpty(filePath))
                 {
                     var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    filePath = $"user://game_log_{timestamp}.txt";
+                    filePath = $"user://logs/game_log_{timestamp}.txt";
                 }
 
                 // 构建完整文本并使用 System.IO 写入，避免依赖可能不存在的 Godot API
@@ -59,7 +59,7 @@ namespace MasqueradeArk.Utilities
                 if (string.IsNullOrEmpty(filePath))
                 {
                     var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    filePath = $"user://game_log_{timestamp}.json";
+                    filePath = $"user://logs/game_log_{timestamp}.json";
                 }
 
                 var jsonData = new Godot.Collections.Dictionary
@@ -85,7 +85,7 @@ namespace MasqueradeArk.Utilities
                     eventLogArray.Add(log);
                 }
 
-                var jsonString = Json.Stringify(jsonData);
+                var jsonString = Json.Stringify(jsonData, "\t", true);
                 
                 var actualPath = ProjectSettings.GlobalizePath(filePath);
                 var dir = System.IO.Path.GetDirectoryName(actualPath);
@@ -116,7 +116,7 @@ namespace MasqueradeArk.Utilities
                 if (string.IsNullOrEmpty(filePath))
                 {
                     var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    filePath = $"user://game_summary_{timestamp}.md";
+                    filePath = $"user://logs/game_summary_{timestamp}.md";
                 }
 
                 var summary = GenerateMarkdownSummary(state);

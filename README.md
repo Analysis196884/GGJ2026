@@ -75,7 +75,7 @@ public class Survivor : Resource
 	// 精神属性
 	public int Stress;               // 压力值 (0-100)
 	public int Integrity;            // 道德值 (-100~100)
-	public int Suspicion;            // 被怀疑程度 (0-100)
+	public int Trust;            	 // 对玩家的信任程度 (0-100)
 	
 	// 秘密集合
 	public string[] Secrets;         // "Infected", "Thief", etc.
@@ -178,7 +178,7 @@ public class GameState : Resource
 │ │Name: Dr │ │ [Next Day]       │
 │ │HP ████░ │ │ [Meeting]        │
 │ │Stress░░ │ │                  │
-│ │Suspic░░ │ │  选择按钮        │
+│ |Trust ░░ │ │  选择按钮        │
 │ └─────────┘ │ [Choice 1] ...   │
 │             │                  │
 └─────────────┴──────────────────┘
@@ -370,18 +370,6 @@ Day 5 - Supplies:30 Defense:50 Survivors:4
 
 ---
 
-## 许可证
-
-[待定]
-
-## 贡献者
-
-- 游戏设计：Masquerade Ark Team
-- 代码：C# Developer Team
-- 叙事设计：Narrative Team
-
----
-
 ## 更新日志
 
 ### v0.1.0（初版）
@@ -390,18 +378,12 @@ Day 5 - Supplies:30 Defense:50 Survivors:4
 - [x] 叙事引擎框架搭建
 - [x] UI 系统实现
 - [x] 游戏管理器集成
-- [ ] LLM 集成（待实现）
+- [x] LLM 集成
 - [ ] 音效与美术（待实现）
 - [ ] 存档系统完善（待实现）
 
 ---
 
-## 联系方式
-
-[待定]
-
----
-
-**最后更新**：2026-01-29
+**最后更新**：2026-02-01
 
 **项目版本**：v0.1.0-alpha
