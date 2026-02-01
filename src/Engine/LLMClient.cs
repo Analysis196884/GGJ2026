@@ -37,7 +37,7 @@ namespace MasqueradeArk.Engine
         public string ApiKey { get; set; } = "";
 
         [Export]
-        public string Model { get; set; } = "deepseek-chat";
+        public string Model { get; set; } = "";
 
         [Export]
         public bool Simulate { get; set; } = false;
@@ -64,28 +64,27 @@ namespace MasqueradeArk.Engine
                 return;
             }
 
-            // 从配置文件读取
+            // 使用 Godot 的 ConfigFile 读取配置文件
             string configPath = ProjectSettings.GlobalizePath("user://LLMAPI.cfg");
-            if (System.IO.File.Exists(configPath))
+            var config = new ConfigFile();
+            Error err = config.Load(configPath);
+
+            if (err == Error.Ok)
             {
-                try
+                // section 可以为空字符串 ""，表示根级别
+                string model = (string)config.GetValue("API", "model", "");
+                string apiKey = (string)config.GetValue("API", "key", "");
+                if (!string.IsNullOrEmpty(model) && !string.IsNullOrEmpty(apiKey))
                 {
-                    var lines = System.IO.File.ReadAllLines(configPath, Encoding.UTF8);
-                    foreach (var line in lines)
-                    {
-                        var trimmed = line.Trim();
-                        if (trimmed.StartsWith("key="))
-                        {
-                            ApiKey = trimmed.Substring(4);
-                            GD.Print("[LLMClient] API Key loaded from config file");
-                            return;
-                        }
-                    }
+                    ApiKey = apiKey;
+                    Model = model;
+                    GD.Print("[LLMClient] API Key loaded from config file");
+                    return;
                 }
-                catch (Exception e)
-                {
-                    GD.PrintErr($"[LLMClient] Error reading config file: {e.Message}");
-                }
+            }
+            else
+            {
+                GD.PrintErr($"[LLMClient] Failed to load config file: {err}");
             }
 
             GD.Print("[LLMClient] No API Key found, using simulation mode");

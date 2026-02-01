@@ -1,0 +1,36 @@
+[gd_scene load_steps=2 format=3 uid="uid://34fli5n6sbgd"]
+
+[ext_resource type="Script" uid="uid://i4t3pm0vuofw" path="res://src/UI/StartMenu.cs" id="StartMenuScript"]
+
+[node name="root" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("StartMenuScript")
+
+[node name="MenuContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+alignment = 1
+
+[node name="StartGameButton" type="Button" parent="MenuContainer"]
+custom_minimum_size = Vector2(200, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 24
+text = "开始游戏"
+
+[node name="SettingsButton" type="Button" parent="MenuContainer"]
+custom_minimum_size = Vector2(200, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 24
+text = "设置"
+
+[node name="QuitButton" type="Button" parent="MenuContainer"]
+custom_minimum_size = Vector2(200, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 24
+text = "退出游戏"

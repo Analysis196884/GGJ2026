@@ -1,0 +1,51 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://b8x4qk2m5n1p" path="res://src/UI/Settings.cs" id="SettingsScript"]
+
+[node name="root" type="Control"]
+script = ExtResource("SettingsScript")
+layout_mode = 3
+anchors_preset = 0
+
+[node name="SettingsContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+alignment = 1
+
+[node name="ModelLabel" type="Label" parent="SettingsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Model Name:"
+horizontal_alignment = 1
+
+[node name="ModelNameInput" type="LineEdit" parent="SettingsContainer"]
+custom_minimum_size = Vector2(300, 40)
+layout_mode = 2
+placeholder_text = "输入模型名称"
+
+[node name="ApiKeyLabel" type="Label" parent="SettingsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "API Key:"
+horizontal_alignment = 1
+
+[node name="ApiKeyInput" type="LineEdit" parent="SettingsContainer"]
+custom_minimum_size = Vector2(300, 40)
+layout_mode = 2
+placeholder_text = "输入您的API Key"
+
+[node name="ButtonContainer" type="HBoxContainer" parent="SettingsContainer"]
+layout_mode = 2
+
+[node name="SaveButton" type="Button" parent="SettingsContainer/ButtonContainer"]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "保存"
+
+[node name="BackButton" type="Button" parent="SettingsContainer/ButtonContainer"]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "返回"
