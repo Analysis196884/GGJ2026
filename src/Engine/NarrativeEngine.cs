@@ -58,10 +58,6 @@ namespace MasqueradeArk.Engine
         					break;
         				}
         			}
-        			if (_llmClient == null)
-        			{
-        				GD.Print("[NarrativeEngine] 未找到 LLMClient 实例");
-        			}
         		}
         	}
         	

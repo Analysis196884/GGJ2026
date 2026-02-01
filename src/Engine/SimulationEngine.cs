@@ -314,13 +314,23 @@ namespace MasqueradeArk.Engine
             {
                 GD.Print("[SimulationEngine] 触发LLM随机事件生成");
                 // 异步调用，不阻塞
-                GenerateRandomEventUsingLLM(state, (llmEvent) =>
+                GenerateRandomEventUsingLLM(state, (result) =>
                 {
+                    var (llmEvent, effects) = result;
                     if (llmEvent != null)
                     {
-                        // 将事件添加到日志
-                        state.AppendLog(llmEvent.Description);
-                        GD.Print($"[SimulationEngine] LLM随机事件已添加到日志: {llmEvent.Description}");
+                        // 将事件添加到日志 - 格式化为带日期的日志条目
+                        string formattedLog = $"[Day {llmEvent.Day}] [i]{llmEvent.Description}[/i]";
+                        state.AppendLog(formattedLog);
+                        
+                        // 使用LogCallback通知UI更新（如果已设置）
+                        LogCallback?.Invoke(formattedLog);
+                        
+                        // 在事件描述之后应用效果
+                        if (effects.HasValue)
+                        {
+                            ApplyLLMEventEffects(state, effects.Value, llmEvent);
+                        }
                     }
                 });
             }
@@ -651,20 +661,20 @@ namespace MasqueradeArk.Engine
 
         /// <summary>
         /// 使用LLM生成随机事件（异步回调版本）
+        /// 回调接收 Tuple<GameEvent, JsonElement?> - 包含事件和Effects数据
         /// </summary>
-        public void GenerateRandomEventUsingLLM(GameState state, Action<GameEvent> callback)
+        public void GenerateRandomEventUsingLLM(GameState state, Action<(GameEvent gameEvent, JsonElement? effects)> callback)
         {
             if (_llmClient == null || !_llmClient.Enabled)
             {
                 GD.Print("[SimulationEngine] LLM客户端未启用，跳过LLM随机事件生成");
-                callback(null);
+                callback((null, null));
                 return;
             }
 
             // 生成历史事件摘要（用于上下文管理）
             string eventHistorySummary = GenerateEventHistorySummary(state);
 
-            GD.Print("[SimulationEngine] 调用LLM生成随机事件");
             _llmClient.GenerateRandomEvent(state, eventHistorySummary, (jsonResponse) =>
             {
                 try
@@ -672,11 +682,9 @@ namespace MasqueradeArk.Engine
                     if (string.IsNullOrEmpty(jsonResponse))
                     {
                         GD.Print("[SimulationEngine] LLM返回空响应");
-                        callback(null);
+                        callback((null, null));
                         return;
                     }
-
-                    GD.Print($"[SimulationEngine] 解析LLM随机事件JSON: {jsonResponse}");
                     
                     // 解析JSON
                     using JsonDocument doc = JsonDocument.Parse(jsonResponse);
@@ -709,19 +717,20 @@ namespace MasqueradeArk.Engine
                         }
                     }
 
-                    // 应用效果
-                    if (root.TryGetProperty("Effects", out var effects))
+                    // 提取Effects数据（不在这里应用，而是在回调中应用以保证顺序）
+                    JsonElement? effects = null;
+                    if (root.TryGetProperty("Effects", out var effectsData))
                     {
-                        ApplyLLMEventEffects(state, effects, gameEvent);
+                        effects = effectsData;
                     }
 
                     GD.Print($"[SimulationEngine] LLM随机事件生成成功: {gameEvent.Description}");
-                    callback(gameEvent);
+                    callback((gameEvent, effects));
                 }
                 catch (Exception ex)
                 {
                     GD.PrintErr($"[SimulationEngine] 解析LLM随机事件失败: {ex.Message}");
-                    callback(null);
+                    callback((null, null));
                 }
             });
         }
@@ -740,7 +749,9 @@ namespace MasqueradeArk.Engine
                 if (delta != 0)
                 {
                     gameEvent.SetContextValue("SuppliesDelta", delta);
-                    GD.Print($"[SimulationEngine] 物资变化: {delta}");
+                    string log = $"    物资变化: {delta}";
+                    state.AppendLog(log);
+                    LogCallback?.Invoke(log);
                 }
             }
 
@@ -753,7 +764,9 @@ namespace MasqueradeArk.Engine
                 if (delta != 0)
                 {
                     gameEvent.SetContextValue("DefenseDelta", delta);
-                    GD.Print($"[SimulationEngine] 防御变化: {delta}");
+                    string log = $"    防御变化: {delta}";
+                    state.AppendLog(log);
+                    LogCallback?.Invoke(log);
                 }
             }
 
@@ -773,7 +786,9 @@ namespace MasqueradeArk.Engine
                             {
                                 int delta = hpDelta.GetInt32();
                                 survivor.Hp += delta;
-                                GD.Print($"[SimulationEngine] {npcName} 生命值变化: {delta}");
+                                string log = $"    {npcName} 生命值变化: {delta}";
+                                state.AppendLog(log);
+                                LogCallback?.Invoke(log);
                             }
 
                             // 应用压力值变化
@@ -781,7 +796,9 @@ namespace MasqueradeArk.Engine
                             {
                                 int delta = stressDelta.GetInt32();
                                 survivor.Stress += delta;
-                                GD.Print($"[SimulationEngine] {npcName} 压力值变化: {delta}");
+                                string log = $"    {npcName} 压力值变化: {delta}";
+                                state.AppendLog(log);
+                                LogCallback?.Invoke(log);
                             }
 
                             // 应用信任度变化
@@ -789,7 +806,9 @@ namespace MasqueradeArk.Engine
                             {
                                 int delta = trustDelta.GetInt32();
                                 survivor.ModifyTrust(GameConstants.PLAYER_NAME, delta);
-                                GD.Print($"[SimulationEngine] {npcName} 对玩家信任度变化: {delta}");
+                                string log = $"    {npcName} 对玩家信任度变化: {delta}";
+                                state.AppendLog(log);
+                                LogCallback?.Invoke(log);
                             }
 
                             // 约束数值范围

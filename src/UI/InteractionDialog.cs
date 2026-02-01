@@ -57,10 +57,6 @@ namespace MasqueradeArk.UI
                 // 尝试通过组查找
                 var root = GetTree().Root;
                 _narrativeEngine = root.GetNodeOrNull<NarrativeEngine>("/GameManager/NarrativeEngine");
-                if (_narrativeEngine == null)
-                {
-                    GD.PrintErr("[InteractionDialog] 未找到 NarrativeEngine");
-                }
             }
         }
 

@@ -43,9 +43,10 @@ namespace MasqueradeArk.Engine
         public bool Simulate { get; set; } = false;
 
         private RandomNumberGenerator _rng = new();
-        private HttpRequest _httpRequest = null!;
-        private bool _isRequesting = false;
-        private Queue<(string eventType, string eventDescription, GameState state, Action<string> callback)> _requestQueue = new();
+        // 移除单个HttpRequest实例，改为每次请求时创建新实例
+        // private HttpRequest _httpRequest = null!;
+        // private bool _isRequesting = false;
+        // private Queue<(string eventType, string eventDescription, GameState state, Action<string> callback)> _requestQueue = new();
 
         public LLMClient()
         {
@@ -93,8 +94,7 @@ namespace MasqueradeArk.Engine
         public override void _Ready()
         {
             base._Ready();
-            _httpRequest = new HttpRequest();
-            AddChild(_httpRequest);
+            // HttpRequest现在在每次API调用时动态创建，不再使用单个全局实例
             LoadApiKey();
         }
 
@@ -106,6 +106,10 @@ namespace MasqueradeArk.Engine
                 callback(GenerateSimulatedNarrative(eventType, eventDescription, state));
                 return;
             }
+
+            // 为每个请求创建独立的HttpRequest实例，避免并发冲突
+            var httpRequest = new HttpRequest();
+            AddChild(httpRequest);
 
             // 构建提示
             string prompt = $"""
@@ -141,8 +145,10 @@ namespace MasqueradeArk.Engine
 
             void OnRequestCompleted(long result, long responseCode, string[] headers, byte[] body)
             {
-                GD.Print($"[LLMClient] Request completed, result: {result}, responseCode: {responseCode}");
-                _httpRequest.RequestCompleted -= OnRequestCompleted;
+                httpRequest.RequestCompleted -= OnRequestCompleted;
+                
+                // 请求完成后清理HttpRequest实例
+                httpRequest.QueueFree();
 
                 if (result != (long)HttpRequest.Result.Success)
                 {
@@ -161,13 +167,11 @@ namespace MasqueradeArk.Engine
                 try
                 {
                     string responseBody = System.Text.Encoding.UTF8.GetString(body);
-                    GD.Print($"[LLMClient] Response body: {responseBody}");
                     using JsonDocument doc = JsonDocument.Parse(responseBody);
                     var root = doc.RootElement;
                     if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                     {
                         string content = choices[0].GetProperty("message").GetProperty("content").GetString()?.Trim() ?? "";
-                        GD.Print($"[LLMClient] Extracted content: {content}");
                         callback(content);
                     }
                     else
@@ -183,19 +187,21 @@ namespace MasqueradeArk.Engine
                 }
             }
 
-            _httpRequest.RequestCompleted += OnRequestCompleted;
-            Error error = _httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
+            httpRequest.RequestCompleted += OnRequestCompleted;
+            Error error = httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
             GD.Print($"[LLMClient] Request sent, error: {error}");
 
             if (error != Error.Ok)
             {
                 GD.PrintErr($"[LLMClient] 请求失败: {error}");
+                httpRequest.QueueFree();
                 callback(GenerateSimulatedNarrative(eventType, eventDescription, state));
             }
         }
 
         /// <summary>
         /// 生成事件叙事文本（回调版本，避免阻塞）
+        /// 每个调用都创建独立的HttpRequest实例，支持真正的并发
         /// </summary>
         public void GenerateEventNarrative(string eventType, string eventDescription, GameState state, Action<string> callback)
         {
@@ -213,40 +219,9 @@ namespace MasqueradeArk.Engine
                 return;
             }
 
-            // 真实 API 调用
+            // 真实 API 调用 - 每个调用都使用独立的HttpRequest，支持并发
             GD.Print($"[LLMClient] 调用真实 API 为事件 {eventType} 生成叙事文本");
-            if (_isRequesting)
-            {
-                _requestQueue.Enqueue((eventType, eventDescription, state, callback));
-            }
-            else
-            {
-                _isRequesting = true;
-                CallDeepSeekApi(eventType, eventDescription, state, (result) =>
-                {
-                    callback(result);
-                    _isRequesting = false;
-                    ProcessNextRequest();
-                });
-            }
-        }
-
-        /// <summary>
-        /// 处理队列中的下一个请求
-        /// </summary>
-        private void ProcessNextRequest()
-        {
-            if (_requestQueue.Count > 0)
-            {
-                var (eventType, eventDescription, state, callback) = _requestQueue.Dequeue();
-                _isRequesting = true;
-                CallDeepSeekApi(eventType, eventDescription, state, (result) =>
-                {
-                    callback(result);
-                    _isRequesting = false;
-                    ProcessNextRequest();
-                });
-            }
+            CallDeepSeekApi(eventType, eventDescription, state, callback);
         }
 
         /// <summary>
@@ -321,6 +296,10 @@ namespace MasqueradeArk.Engine
 
         private void CallDeepSeekApiForInteraction(Survivor npc, string playerInput, Action<string> callback)
         {
+            // Create independent HttpRequest for this call
+            var httpRequest = new HttpRequest();
+            AddChild(httpRequest);
+
             // 获取NPC的秘密信息
             string secretsInfo = npc.Secrets.Length > 0
                 ? string.Join(", ", npc.Secrets)
@@ -393,7 +372,8 @@ JSON 格式：
 
             void OnRequestCompleted(long result, long responseCode, string[] headers, byte[] body)
             {
-                _httpRequest.RequestCompleted -= OnRequestCompleted;
+                httpRequest.RequestCompleted -= OnRequestCompleted;
+                httpRequest.QueueFree();
 
                 if (result != (long)HttpRequest.Result.Success)
                 {
@@ -434,11 +414,12 @@ JSON 格式：
                 }
             }
 
-            _httpRequest.RequestCompleted += OnRequestCompleted;
-            Error error = _httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
+            httpRequest.RequestCompleted += OnRequestCompleted;
+            Error error = httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
 
             if (error != Error.Ok)
             {
+                httpRequest.QueueFree();
                 GD.PrintErr($"[LLMClient] 交互请求失败: {error}");
                 callback(GenerateSimulatedInteractionResponse(npc, playerInput));
             }
@@ -508,6 +489,10 @@ JSON 格式：
 
         private void CallDeepSeekApiForSummary(GameState state, Action<string> callback)
         {
+            // Create independent HttpRequest for this call
+            var httpRequest = new HttpRequest();
+            AddChild(httpRequest);
+
             string systemPrompt = $$"""
 {{GameLore}}
 
@@ -547,7 +532,8 @@ JSON 格式：
 
             void OnRequestCompleted(long result, long responseCode, string[] headers, byte[] body)
             {
-                _httpRequest.RequestCompleted -= OnRequestCompleted;
+                httpRequest.RequestCompleted -= OnRequestCompleted;
+                httpRequest.QueueFree();
 
                 if (result != (long)HttpRequest.Result.Success)
                 {
@@ -584,11 +570,12 @@ JSON 格式：
                 }
             }
 
-            _httpRequest.RequestCompleted += OnRequestCompleted;
-            Error error = _httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
+            httpRequest.RequestCompleted += OnRequestCompleted;
+            Error error = httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
 
             if (error != Error.Ok)
             {
+                httpRequest.QueueFree();
                 GD.PrintErr($"[LLMClient] 请求失败: {error}");
                 callback($"第 {state.Day} 天。幸存者 {state.GetAliveSurvivorCount()} 人，物资 {state.Supplies} 单位。");
             }
@@ -623,6 +610,10 @@ JSON 格式：
         /// </summary>
         private void CallDeepSeekApiForRandomEvent(GameState state, string eventHistorySummary, Action<string> callback)
         {
+            // Create independent HttpRequest for this call
+            var httpRequest = new HttpRequest();
+            AddChild(httpRequest);
+
             // 1. 找出压力最高和最饥饿的NPC作为潜在爆发点
             Survivor mostStressed = null;
             Survivor mostHungry = null;
@@ -665,14 +656,13 @@ JSON 格式：
 1. **蝴蝶效应**：不要凭空生成事件。请观察 NPC 当前的状态（尤其是高压力、高饥饿的 NPC），让事件成为他们状态恶化的后果。
    - *例子*：如果 Tom 压力高 -> Tom 梦游打翻了煤油灯 -> 火灾导致物资损失。
 2. **戏剧性与多样性**：
-   - 包含：心理崩溃、物资事故、社交冲突、外部入侵、设施故障、发现秘密。
-   - 避免：单调的"发现物资"或"被丧尸攻击"。
+   - 例如：心理崩溃、社交冲突、互相伤害、外部入侵、设施故障、发现秘密。
 3. **结果导向**：事件必须对游戏数值产生实际影响。
 
 JSON 格式要求（严禁 Markdown）：
 {
     "EventType": "事件类型 (Crisis/Conflict/Accident/Atmosphere)",
-    "Description": "一段 80-120 字的事件描述。侧重描写氛围、声音和角色的反应。",
+    "Description": "一段 50 字左右的事件描述。要求事件的经过、NPC的反应能够让人一眼看清楚。",
     "InvolvedNpcs": ["涉及的 NPC 名字"],
     "Effects": {
         "SuppliesDelta": 整数,
@@ -725,7 +715,8 @@ JSON 格式要求（严禁 Markdown）：
 
             void OnRequestCompleted(long result, long responseCode, string[] headers, byte[] body)
             {
-                _httpRequest.RequestCompleted -= OnRequestCompleted;
+                httpRequest.RequestCompleted -= OnRequestCompleted;
+                httpRequest.QueueFree();
 
                 if (result != (long)HttpRequest.Result.Success)
                 {
@@ -767,11 +758,12 @@ JSON 格式要求（严禁 Markdown）：
                 }
             }
 
-            _httpRequest.RequestCompleted += OnRequestCompleted;
-            Error error = _httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
+            httpRequest.RequestCompleted += OnRequestCompleted;
+            Error error = httpRequest.Request(ApiEndpoint, headers, HttpClient.Method.Post, jsonBody);
 
             if (error != Error.Ok)
             {
+                httpRequest.QueueFree();
                 GD.PrintErr($"[LLMClient] 随机事件请求失败: {error}");
                 callback(GenerateSimulatedRandomEvent(state));
             }
