@@ -31,6 +31,7 @@ namespace MasqueradeArk.Manager
 		// 游戏状态
 		private bool _isGameOver = false;
 		private bool _isProcessing = false;
+		private bool _isMeeting = false;
 		
 		// 任务选择状态
 		private List<TaskManager.Task>? _pendingTasks = null;
@@ -437,6 +438,8 @@ namespace MasqueradeArk.Manager
 			// 显示投票选项（需要自定义具体实现）
 			var choices = GetVotingChoices();
 			_uiManager.ShowChoices(choices);
+
+			_isMeeting = true;
 		}
 
 		/// <summary>
@@ -581,7 +584,7 @@ namespace MasqueradeArk.Manager
 			
 			// 如果当前处于投票状态，处理投票结果
 			var choices = GetVotingChoices();
-			if (choiceIndex < choices.Length)
+			if (_isMeeting && choiceIndex < choices.Length)
 			{
 				string selectedChoice = choices[choiceIndex];
 				
@@ -611,6 +614,7 @@ namespace MasqueradeArk.Manager
 					// 检查游戏结束条件
 					CheckGameOver();
 				}
+				_isMeeting = false;
 			}
 			else
 			{

@@ -355,7 +355,7 @@ namespace MasqueradeArk.UI
 				var secretsLabel = new Label();
 				secretsLabel.Text = $"[秘密] {string.Join(", ", survivor.Secrets)}";
 				secretsLabel.AddThemeColorOverride("font_color", Colors.Red);
-				vbox.AddChild(secretsLabel);
+				// vbox.AddChild(secretsLabel); // The secrets should be hidden
 			}
 
 			// HP 条

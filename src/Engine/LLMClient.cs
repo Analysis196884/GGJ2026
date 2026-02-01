@@ -97,7 +97,7 @@ namespace MasqueradeArk.Engine
             LoadApiKey();
         }
 
-        private void CallDeepSeekApi(string eventType, string eventDescription, GameState state, Action<string> callback)
+        private void CallModelAPI(string eventType, string eventDescription, GameState state, Action<string> callback)
         {
             GD.Print("[LLMClient] Starting API call");
             if (string.IsNullOrEmpty(ApiEndpoint))
@@ -220,7 +220,7 @@ namespace MasqueradeArk.Engine
 
             // 真实 API 调用 - 每个调用都使用独立的HttpRequest，支持并发
             GD.Print($"[LLMClient] 调用真实 API 为事件 {eventType} 生成叙事文本");
-            CallDeepSeekApi(eventType, eventDescription, state, callback);
+            CallModelAPI(eventType, eventDescription, state, callback);
         }
 
         /// <summary>
@@ -290,10 +290,10 @@ namespace MasqueradeArk.Engine
             }
 
             // 真实 API 调用
-            CallDeepSeekApiForInteraction(npc, playerInput, callback);
+            CallModelAPIForInteraction(npc, playerInput, callback);
         }
 
-        private void CallDeepSeekApiForInteraction(Survivor npc, string playerInput, Action<string> callback)
+        private void CallModelAPIForInteraction(Survivor npc, string playerInput, Action<string> callback)
         {
             // Create independent HttpRequest for this call
             var httpRequest = new HttpRequest();
@@ -483,10 +483,10 @@ JSON 格式：
 
             // 真实 API 调用
             GD.Print($"[LLMClient] 调用真实 API 生成日间摘要");
-            CallDeepSeekApiForSummary(state, callback);
+            CallModelAPIForSummary(state, callback);
         }
 
-        private void CallDeepSeekApiForSummary(GameState state, Action<string> callback)
+        private void CallModelAPIForSummary(GameState state, Action<string> callback)
         {
             // Create independent HttpRequest for this call
             var httpRequest = new HttpRequest();
@@ -601,13 +601,13 @@ JSON 格式：
 
             // 真实 API 调用
             GD.Print($"[LLMClient] 调用真实 API 生成随机事件");
-            CallDeepSeekApiForRandomEvent(state, eventHistorySummary, callback);
+            CallModelAPIForRandomEvent(state, eventHistorySummary, callback);
         }
 
         /// <summary>
         /// 调用DeepSeek API生成随机事件
         /// </summary>
-        private void CallDeepSeekApiForRandomEvent(GameState state, string eventHistorySummary, Action<string> callback)
+        private void CallModelAPIForRandomEvent(GameState state, string eventHistorySummary, Action<string> callback)
         {
             // Create independent HttpRequest for this call
             var httpRequest = new HttpRequest();
