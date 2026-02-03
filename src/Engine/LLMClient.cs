@@ -31,7 +31,7 @@ namespace MasqueradeArk.Engine
         public bool Enabled { get; set; } = false;
 
         [Export]
-        public string ApiEndpoint { get; set; } = "https://api.deepseek.com/chat/completions";
+        public string ApiEndpoint { get; set; } = "";
 
         [Export]
         public string ApiKey { get; set; } = "";
@@ -74,11 +74,16 @@ namespace MasqueradeArk.Engine
                 // section 可以为空字符串 ""，表示根级别
                 string model = (string)config.GetValue("API", "model", "");
                 string apiKey = (string)config.GetValue("API", "key", "");
+                string endpoint = (string)config.GetValue("API", "endpoint", "");
                 if (!string.IsNullOrEmpty(model) && !string.IsNullOrEmpty(apiKey))
                 {
                     ApiKey = apiKey;
                     Model = model;
-                    GD.Print("[LLMClient] API Key loaded from config file");
+                    if (!string.IsNullOrEmpty(endpoint))
+                    {
+                        ApiEndpoint = endpoint;
+                    }
+                    GD.Print("[LLMClient] API Key and endpoint loaded from config file");
                     return;
                 }
             }
@@ -766,6 +771,70 @@ JSON 格式要求（严禁 Markdown）：
                 httpRequest.QueueFree();
                 GD.PrintErr($"[LLMClient] 随机事件请求失败: {error}");
                 callback(GenerateSimulatedRandomEvent(state));
+            }
+        }
+
+        /// <summary>
+        /// 测试API连接
+        /// </summary>
+        public void TestConnection(string apiEndpoint, string modelName, string apiKey, Action<bool, string> callback)
+        {
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                callback(false, "API Key未设置");
+                return;
+            }
+
+            // 创建简单的测试请求
+            var httpRequest = new HttpRequest();
+            AddChild(httpRequest);
+
+            var requestBody = new
+            {
+                model = modelName,
+                messages = new[]
+                {
+                    new { role = "user", content = "Hello" }
+                },
+                max_tokens = 10
+            };
+
+            string jsonBody = JsonSerializer.Serialize(requestBody);
+            var headers = new string[]
+            {
+                "Authorization: Bearer " + apiKey,
+                "Content-Type: application/json"
+            };
+
+            void OnRequestCompleted(long result, long responseCode, string[] headers, byte[] body)
+            {
+                httpRequest.RequestCompleted -= OnRequestCompleted;
+                httpRequest.QueueFree();
+
+                if (result != (long)HttpRequest.Result.Success)
+                {
+                    callback(false, $"请求失败: {result}");
+                    return;
+                }
+
+                if (responseCode == 200)
+                {
+                    callback(true, "连接成功");
+                }
+                else
+                {
+                    string errorMsg = System.Text.Encoding.UTF8.GetString(body);
+                    callback(false, $"API错误 {responseCode}: {errorMsg}");
+                }
+            }
+
+            httpRequest.RequestCompleted += OnRequestCompleted;
+            Error error = httpRequest.Request(apiEndpoint, headers, HttpClient.Method.Post, jsonBody);
+
+            if (error != Error.Ok)
+            {
+                httpRequest.QueueFree();
+                callback(false, $"请求初始化失败: {error}");
             }
         }
 

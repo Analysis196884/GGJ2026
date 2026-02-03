@@ -30,9 +30,9 @@ namespace MasqueradeArk.UI
             base._Ready();
 
             // 获取节点引用
-            if (NPCLabel == null) NPCLabel = GetNode<Label>("NPCLabel");
-            if (PlayerInput == null) PlayerInput = GetNode<LineEdit>("PlayerInput");
-            if (SendButton == null) SendButton = GetNode<Button>("SendButton");
+            // if (NPCLabel == null) NPCLabel = GetNode<Label>("NPCLabel");
+            // if (PlayerInput == null) PlayerInput = GetNode<LineEdit>("PlayerInput");
+            // if (SendButton == null) SendButton = GetNode<Button>("SendButton");
 
             // 如果节点不存在，创建默认 UI
             if (NPCLabel == null || PlayerInput == null || SendButton == null)
@@ -51,13 +51,8 @@ namespace MasqueradeArk.UI
             }
 
             // 查找NarrativeEngine
-            _narrativeEngine = GetNode<NarrativeEngine>("/root/GameManager/NarrativeEngine");
-            if (_narrativeEngine == null)
-            {
-                // 尝试通过组查找
-                var root = GetTree().Root;
-                _narrativeEngine = root.GetNodeOrNull<NarrativeEngine>("/GameManager/NarrativeEngine");
-            }
+            var root = GetTree().Root;
+            _narrativeEngine = root.GetNodeOrNull<NarrativeEngine>("/GameManager/NarrativeEngine");
         }
 
         /// <summary>

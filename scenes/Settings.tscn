@@ -1,37 +1,64 @@
-[gd_scene format=3]
+[gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" uid="uid://b8x4qk2m5n1p" path="res://src/UI/Settings.cs" id="SettingsScript"]
+[ext_resource type="Script" path="res://src/UI/Settings.cs" id="SettingsScript"]
 
 [node name="root" type="Control"]
-script = ExtResource("SettingsScript")
 layout_mode = 3
 anchors_preset = 0
+script = ExtResource("SettingsScript")
 
 [node name="SettingsContainer" type="VBoxContainer" parent="."]
 layout_mode = 1
 alignment = 1
 
-[node name="ModelLabel" type="Label" parent="SettingsContainer"]
+[node name="APIEndpointContainer" type="HBoxContainer" parent="SettingsContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="ApiEndpointLabel" type="Label" parent="SettingsContainer/APIEndpointContainer"]
+custom_minimum_size = Vector2(200, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "API Endpoint:"
+horizontal_alignment = 1
+
+[node name="ApiEndpointInput" type="LineEdit" parent="SettingsContainer/APIEndpointContainer"]
+custom_minimum_size = Vector2(300, 40)
+layout_mode = 2
+placeholder_text = "https://api.example.com/chat/completions"
+
+[node name="ModelNameContainer" type="HBoxContainer" parent="SettingsContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="ModelLabel" type="Label" parent="SettingsContainer/ModelNameContainer"]
+custom_minimum_size = Vector2(200, 40)
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Model Name:"
 horizontal_alignment = 1
 
-[node name="ModelNameInput" type="LineEdit" parent="SettingsContainer"]
+[node name="ModelNameInput" type="LineEdit" parent="SettingsContainer/ModelNameContainer"]
 custom_minimum_size = Vector2(300, 40)
 layout_mode = 2
 placeholder_text = "输入模型名称"
 
-[node name="ApiKeyLabel" type="Label" parent="SettingsContainer"]
+[node name="APIKeyContainer" type="HBoxContainer" parent="SettingsContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="ApiKeyLabel" type="Label" parent="SettingsContainer/APIKeyContainer"]
+custom_minimum_size = Vector2(200, 40)
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "API Key:"
 horizontal_alignment = 1
 
-[node name="ApiKeyInput" type="LineEdit" parent="SettingsContainer"]
+[node name="ApiKeyInput" type="LineEdit" parent="SettingsContainer/APIKeyContainer"]
 custom_minimum_size = Vector2(300, 40)
 layout_mode = 2
 placeholder_text = "输入您的API Key"
+secret = true
 
 [node name="ButtonContainer" type="HBoxContainer" parent="SettingsContainer"]
 layout_mode = 2
@@ -49,3 +76,16 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 18
 text = "返回"
+
+[node name="TestButton" type="Button" parent="SettingsContainer/ButtonContainer"]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "测试连接"
+
+[node name="TestResultLabel" type="Label" parent="SettingsContainer"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
